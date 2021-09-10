@@ -5,10 +5,12 @@ use crate::syntax::ExpressionSyntax;
 use crate::syntax::LiteralExpressionSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
+use crate::syntax::SyntaxTree;
 
 pub(crate) struct Parser {
     tokens: Vec<SyntaxToken>,
     position: usize,
+    diagnostics: Vec<String>,
 }
 
 impl Parser {
@@ -25,9 +27,12 @@ impl Parser {
                 break;
             }
         }
+        let mut diagnostics = Vec::new();
+        std::mem::swap(&mut diagnostics, &mut lexer.diagnostics);
         Self {
             tokens,
             position: 0,
+            diagnostics,
         }
     }
 
@@ -68,6 +73,11 @@ impl Parser {
         if self.current().kind == kind {
             self.next_token()
         } else {
+            self.diagnostics.push(format!(
+                "ERROR: unexpected token <{:?}>, expected <{:?}>.",
+                self.current().kind,
+                kind
+            ));
             SyntaxToken {
                 kind,
                 position: self.current().position,
@@ -77,8 +87,16 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse(&mut self) -> Box<ExpressionSyntax> {
-        self.parse_expression()
+    pub(crate) fn parse(&mut self) -> SyntaxTree {
+        let root = self.parse_expression();
+        let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
+        let mut diagnostics = Vec::new();
+        std::mem::swap(&mut diagnostics, &mut self.diagnostics);
+        SyntaxTree {
+            root,
+            end_of_file_token,
+            diagnostics,
+        }
     }
 
     fn parse_expression(&mut self) -> Box<ExpressionSyntax> {

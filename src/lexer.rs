@@ -8,6 +8,7 @@ pub(crate) struct Lexer {
     start: usize,
     kind: SyntaxKind,
     value: Object,
+    pub(crate) diagnostics: Vec<String>,
 }
 
 impl Lexer {
@@ -18,6 +19,7 @@ impl Lexer {
             start: 0,
             kind: SyntaxKind::BadToken,
             value: Object::Null,
+            diagnostics: Vec::new(),
         }
     }
 
@@ -37,7 +39,14 @@ impl Lexer {
                 let text = self.input[self.start..self.position]
                     .iter()
                     .collect::<String>();
-                let value = text.parse::<i64>().unwrap();
+                let value = match text.parse::<i64>() {
+                    Ok(v) => v,
+                    Err(_) => {
+                        self.diagnostics
+                            .push(format!("ERROR: invalid i64: {}", text));
+                        0
+                    }
+                };
                 self.value = Object::Number(value);
                 SyntaxKind::NumberToken
             }
@@ -73,6 +82,8 @@ impl Lexer {
             }
             _ => {
                 self.position += 1;
+                self.diagnostics
+                    .push(format!("ERROR: bad character input: '{}'", self.current()));
                 SyntaxKind::BadToken
             }
         };

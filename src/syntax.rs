@@ -18,6 +18,16 @@ pub(crate) enum SyntaxKind {
     LiteralExpression,
 }
 
+impl SyntaxKind {
+    pub(crate) fn get_binary_operator_precedence(&self) -> usize {
+        match self {
+            SyntaxKind::StarToken | SyntaxKind::SlashToken => 2,
+            SyntaxKind::PlusToken | SyntaxKind::MinusToken => 1,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct SyntaxToken {
     pub(crate) kind: SyntaxKind,
@@ -48,6 +58,12 @@ impl Default for SyntaxToken {
     }
 }
 
+pub(crate) struct SyntaxTree {
+    pub(crate) diagnostics: Vec<String>,
+    pub(crate) root: Box<ExpressionSyntax>,
+    pub(crate) end_of_file_token: SyntaxToken,
+}
+
 #[derive(Debug)]
 pub(crate) enum SyntaxNode {
     Expression(ExpressionSyntax),
@@ -70,7 +86,7 @@ impl<'a> SyntaxNodeRef<'a> {
     fn children(&self) -> Vec<SyntaxNodeRef> {
         match self {
             Self::Expression(e) => e.children(),
-            Self::Token(t) => vec![],
+            Self::Token(_) => vec![],
         }
     }
     fn pretty_print_node<W: std::io::Write>(

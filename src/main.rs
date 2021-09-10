@@ -1,14 +1,18 @@
-use std::io::Write;
 use std::io::stdin;
+use std::io::stdout;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::io::stdout;
+use std::io::Write;
 
 use lexer::Lexer;
 use plumbing::Object;
 use syntax::SyntaxKind;
 
+use crate::parser::Parser;
+use crate::syntax::SyntaxNode;
+
 mod lexer;
+mod parser;
 mod plumbing;
 mod syntax;
 
@@ -24,21 +28,8 @@ fn main() {
         }
         line = line.chars().take(line.len() - 1).collect();
 
-        let mut lexer = Lexer::new(&line);
-        let mut tokens = Vec::new();
-        loop {
-            tokens.push(lexer.next_token());
-            if tokens.last().unwrap().kind == SyntaxKind::EndOfFileToken {
-                break;
-            }
-        }
-
-        for token in tokens {
-            print!("{:?} '{}'", token.kind, token.text);
-            if token.value != Object::Null {
-                print!(" {}", token.value);
-            }
-            println!();
-        }
+        let mut parser = Parser::new(&line);
+        let expression = parser.parse();
+        SyntaxNode::Expression(*expression).pretty_print(&mut stdout());
     }
 }

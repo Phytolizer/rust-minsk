@@ -43,6 +43,12 @@ impl Evaluator {
             BoundBinaryOperatorKind::Division => {
                 Object::Number(left.as_number() / right.as_number())
             }
+            BoundBinaryOperatorKind::LogicalAnd => {
+                Object::Boolean(left.as_boolean() && right.as_boolean())
+            }
+            BoundBinaryOperatorKind::LogicalOr => {
+                Object::Boolean(left.as_boolean() || right.as_boolean())
+            }
         }
     }
 
@@ -51,6 +57,7 @@ impl Evaluator {
         match e.operator_kind {
             BoundUnaryOperatorKind::Identity => operand,
             BoundUnaryOperatorKind::Negation => Object::Number(-operand.as_number()),
+            BoundUnaryOperatorKind::LogicalNegation => Object::Boolean(!operand.as_boolean()),
         }
     }
 

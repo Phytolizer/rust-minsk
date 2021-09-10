@@ -52,6 +52,8 @@ pub(crate) enum BoundBinaryOperatorKind {
     Subtraction,
     Multiplication,
     Division,
+    LogicalAnd,
+    LogicalOr,
 }
 
 pub(crate) struct BoundBinaryExpression {
@@ -63,6 +65,7 @@ pub(crate) struct BoundBinaryExpression {
 pub(crate) enum BoundUnaryOperatorKind {
     Identity,
     Negation,
+    LogicalNegation,
 }
 
 pub(crate) struct BoundUnaryExpression {
@@ -123,16 +126,23 @@ impl Binder {
         right_type: ObjectKind,
     ) -> Option<BoundBinaryOperatorKind> {
         if left_type == ObjectKind::Number && right_type == ObjectKind::Number {
-            Some(match kind {
-                SyntaxKind::PlusToken => BoundBinaryOperatorKind::Addition,
-                SyntaxKind::MinusToken => BoundBinaryOperatorKind::Subtraction,
-                SyntaxKind::StarToken => BoundBinaryOperatorKind::Multiplication,
-                SyntaxKind::SlashToken => BoundBinaryOperatorKind::Division,
-                _ => panic!("unexpected binary operator kind {:?}", kind),
-            })
-        } else {
-            None
+            match kind {
+                SyntaxKind::PlusToken => return Some(BoundBinaryOperatorKind::Addition),
+                SyntaxKind::MinusToken => return Some(BoundBinaryOperatorKind::Subtraction),
+                SyntaxKind::StarToken => return Some(BoundBinaryOperatorKind::Multiplication),
+                SyntaxKind::SlashToken => return Some(BoundBinaryOperatorKind::Division),
+                _ => {}
+            }
+        } else if left_type == ObjectKind::Boolean && right_type == ObjectKind::Boolean {
+            match kind {
+                SyntaxKind::AmpersandAmpersandToken => {
+                    return Some(BoundBinaryOperatorKind::LogicalAnd)
+                }
+                SyntaxKind::PipePipeToken => return Some(BoundBinaryOperatorKind::LogicalOr),
+                _ => {}
+            }
         }
+        None
     }
 
     fn bind_unary_expression(&mut self, e: &UnaryExpressionSyntax) -> Box<BoundExpression> {
@@ -160,13 +170,18 @@ impl Binder {
         operand_type: ObjectKind,
     ) -> Option<BoundUnaryOperatorKind> {
         match operand_type {
-            ObjectKind::Number => Some(match kind {
-                SyntaxKind::PlusToken => BoundUnaryOperatorKind::Identity,
-                SyntaxKind::MinusToken => BoundUnaryOperatorKind::Negation,
-                _ => panic!("unexpected unary operator kind {:?}", kind),
-            }),
-            _ => None,
+            ObjectKind::Number => match kind {
+                SyntaxKind::PlusToken => return Some(BoundUnaryOperatorKind::Identity),
+                SyntaxKind::MinusToken => return Some(BoundUnaryOperatorKind::Negation),
+                _ => {}
+            },
+            ObjectKind::Boolean => match kind {
+                SyntaxKind::BangToken => return Some(BoundUnaryOperatorKind::LogicalNegation),
+                _ => {}
+            },
+            _ => {}
         }
+        None
     }
 
     fn bind_literal_expression(

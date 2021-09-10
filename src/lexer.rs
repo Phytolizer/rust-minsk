@@ -1,7 +1,7 @@
 use crate::plumbing::Object;
+use crate::syntax::keyword_kind;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
-use crate::syntax::keyword_kind;
 
 pub(crate) struct Lexer {
     input: Vec<char>,
@@ -24,15 +24,28 @@ impl Lexer {
         }
     }
 
+    fn peek(&self, offset: usize) -> char {
+        self.input
+            .get(self.position + offset)
+            .copied()
+            .unwrap_or('\0')
+    }
+
     fn current(&self) -> char {
-        self.input.get(self.position).copied().unwrap_or('\0')
+        self.peek(0)
+    }
+
+    fn lookahead(&self) -> char {
+        self.peek(1)
     }
 
     pub(crate) fn next_token(&mut self) -> SyntaxToken {
         self.start = self.position;
         self.value = Object::Null;
-        self.kind = match self.current() {
-            '\0' => SyntaxKind::EndOfFileToken,
+        match self.current() {
+            '\0' => {
+                self.kind = SyntaxKind::EndOfFileToken;
+            }
             c if c.is_numeric() => {
                 while self.current().is_numeric() {
                     self.position += 1;
@@ -49,7 +62,7 @@ impl Lexer {
                     }
                 };
                 self.value = Object::Number(value);
-                SyntaxKind::NumberToken
+                self.kind = SyntaxKind::NumberToken;
             }
             c if c.is_alphabetic() => {
                 while self.current().is_alphabetic() {
@@ -58,43 +71,55 @@ impl Lexer {
                 let text = self.input[self.start..self.position]
                     .iter()
                     .collect::<String>();
-                keyword_kind(&text)
+                self.kind = keyword_kind(&text);
             }
             c if c.is_whitespace() => {
                 while self.current().is_whitespace() {
                     self.position += 1;
                 }
-                SyntaxKind::WhitespaceToken
+                self.kind = SyntaxKind::WhitespaceToken;
             }
             '+' => {
                 self.position += 1;
-                SyntaxKind::PlusToken
+                self.kind = SyntaxKind::PlusToken;
             }
             '-' => {
                 self.position += 1;
-                SyntaxKind::MinusToken
+                self.kind = SyntaxKind::MinusToken;
             }
             '*' => {
                 self.position += 1;
-                SyntaxKind::StarToken
+                self.kind = SyntaxKind::StarToken;
             }
             '/' => {
                 self.position += 1;
-                SyntaxKind::SlashToken
+                self.kind = SyntaxKind::SlashToken;
             }
             '(' => {
                 self.position += 1;
-                SyntaxKind::OpenParenthesisToken
+                self.kind = SyntaxKind::OpenParenthesisToken;
             }
             ')' => {
                 self.position += 1;
-                SyntaxKind::CloseParenthesisToken
+                self.kind = SyntaxKind::CloseParenthesisToken;
+            }
+            '!' => {
+                self.position += 1;
+                self.kind = SyntaxKind::BangToken;
+            }
+            '&' if self.lookahead() == '&' => {
+                self.position += 2;
+                self.kind = SyntaxKind::AmpersandAmpersandToken;
+            }
+            '|' if self.lookahead() == '|' => {
+                self.position += 2;
+                self.kind = SyntaxKind::PipePipeToken;
             }
             _ => {
-                self.position += 1;
                 self.diagnostics
                     .push(format!("ERROR: bad character input: '{}'", self.current()));
-                SyntaxKind::BadToken
+                self.position += 1;
+                self.kind = SyntaxKind::BadToken;
             }
         };
         SyntaxToken::new(

@@ -29,6 +29,13 @@ impl Object {
             _ => panic!("not a number: {}", self),
         }
     }
+
+    pub(crate) fn as_boolean(&self) -> bool {
+        match self {
+            Object::Boolean(b) => *b,
+            _ => panic!("not a boolean: {}", self),
+        }
+    }
 }
 
 impl Display for Object {

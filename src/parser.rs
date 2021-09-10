@@ -29,12 +29,10 @@ impl Parser {
                 break;
             }
         }
-        let mut diagnostics = Vec::new();
-        std::mem::swap(&mut diagnostics, &mut lexer.diagnostics);
         Self {
             tokens,
             position: 0,
-            diagnostics,
+            diagnostics: lexer.diagnostics,
         }
     }
 

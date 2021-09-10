@@ -70,7 +70,7 @@ pub(crate) enum SyntaxNode {
     Token(SyntaxToken),
 }
 
-enum SyntaxNodeRef<'a> {
+pub(crate) enum SyntaxNodeRef<'a> {
     Expression(ExpressionSyntaxRef<'a>),
     Token(&'a SyntaxToken),
 }
@@ -88,6 +88,9 @@ impl<'a> SyntaxNodeRef<'a> {
             Self::Expression(e) => e.children(),
             Self::Token(_) => vec![],
         }
+    }
+    pub(crate) fn pretty_print<W: std::io::Write>(&self, writer: &mut W) {
+        self.pretty_print_node(writer, String::new(), true);
     }
     fn pretty_print_node<W: std::io::Write>(
         &self,
@@ -124,10 +127,6 @@ impl SyntaxNode {
             SyntaxNode::Expression(e) => SyntaxNodeRef::Expression(e.create_ref()),
             SyntaxNode::Token(t) => SyntaxNodeRef::Token(t),
         }
-    }
-    pub(crate) fn pretty_print<W: std::io::Write>(&self, writer: &mut W) {
-        self.create_ref()
-            .pretty_print_node(writer, String::new(), true);
     }
 }
 
@@ -170,7 +169,7 @@ impl<'a> ExpressionSyntaxRef<'a> {
 }
 
 impl ExpressionSyntax {
-    fn create_ref(&self) -> ExpressionSyntaxRef {
+    pub(crate) fn create_ref(&self) -> ExpressionSyntaxRef {
         match self {
             ExpressionSyntax::Binary(e) => ExpressionSyntaxRef::Binary(e),
             ExpressionSyntax::Unary(e) => ExpressionSyntaxRef::Unary(e),

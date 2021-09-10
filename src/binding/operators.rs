@@ -114,8 +114,8 @@ const UNARY_OPERATORS: &[BoundUnaryOperator] = &[
     BoundUnaryOperator::new(
         SyntaxKind::BangToken,
         BoundUnaryOperatorKind::LogicalNegation,
-        ObjectKind::Number,
-        ObjectKind::Number,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
     ),
 ];
 

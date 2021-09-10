@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "name": "Launch",
+            "type": "lldb",
+            "preLaunchTask": "rust: cargo build",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/minsk",
+            "sourceLanguages": [
+                "rust"
+            ]
+        }
+    ]
+}

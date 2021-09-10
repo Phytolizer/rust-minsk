@@ -2,8 +2,12 @@ use crate::plumbing::Object;
 use crate::plumbing::ObjectKind;
 use crate::syntax::BinaryExpressionSyntax;
 use crate::syntax::ExpressionSyntaxRef;
-use crate::syntax::SyntaxKind;
 use crate::syntax::UnaryExpressionSyntax;
+
+use self::operators::BoundBinaryOperator;
+use self::operators::BoundUnaryOperator;
+
+mod operators;
 
 pub(crate) enum BoundNodeKind {
     BinaryExpression,
@@ -40,13 +44,14 @@ impl BoundExpression {
 
     pub(crate) fn get_type(&self) -> ObjectKind {
         match self {
-            BoundExpression::Binary(e) => e.left.get_type(),
-            BoundExpression::Unary(e) => e.operand.get_type(),
+            BoundExpression::Binary(e) => e.operator.result_type,
+            BoundExpression::Unary(e) => e.operator.result_type,
             BoundExpression::Literal(e) => e.value.kind(),
         }
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum BoundBinaryOperatorKind {
     Addition,
     Subtraction,
@@ -58,10 +63,11 @@ pub(crate) enum BoundBinaryOperatorKind {
 
 pub(crate) struct BoundBinaryExpression {
     pub(crate) left: Box<BoundExpression>,
-    pub(crate) operator_kind: BoundBinaryOperatorKind,
+    pub(crate) operator: &'static BoundBinaryOperator,
     pub(crate) right: Box<BoundExpression>,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum BoundUnaryOperatorKind {
     Identity,
     Negation,
@@ -69,7 +75,7 @@ pub(crate) enum BoundUnaryOperatorKind {
 }
 
 pub(crate) struct BoundUnaryExpression {
-    pub(crate) operator_kind: BoundUnaryOperatorKind,
+    pub(crate) operator: &'static BoundUnaryOperator,
     pub(crate) operand: Box<BoundExpression>,
 }
 
@@ -97,15 +103,12 @@ impl Binder {
     fn bind_binary_expression(&mut self, e: &BinaryExpressionSyntax) -> Box<BoundExpression> {
         let left = self.bind_expression(e.left.create_ref());
         let right = self.bind_expression(e.right.create_ref());
-        let operator_kind = self.bind_binary_operator_kind(
-            e.operator_token.kind,
-            left.get_type(),
-            right.get_type(),
-        );
-        if let Some(operator_kind) = operator_kind {
+        let operator =
+            BoundBinaryOperator::bind(e.operator_token.kind, left.get_type(), right.get_type());
+        if let Some(operator) = operator {
             Box::new(BoundExpression::Binary(BoundBinaryExpression {
                 left,
-                operator_kind,
+                operator,
                 right,
             }))
         } else {
@@ -119,39 +122,12 @@ impl Binder {
         }
     }
 
-    fn bind_binary_operator_kind(
-        &self,
-        kind: SyntaxKind,
-        left_type: ObjectKind,
-        right_type: ObjectKind,
-    ) -> Option<BoundBinaryOperatorKind> {
-        if left_type == ObjectKind::Number && right_type == ObjectKind::Number {
-            match kind {
-                SyntaxKind::PlusToken => return Some(BoundBinaryOperatorKind::Addition),
-                SyntaxKind::MinusToken => return Some(BoundBinaryOperatorKind::Subtraction),
-                SyntaxKind::StarToken => return Some(BoundBinaryOperatorKind::Multiplication),
-                SyntaxKind::SlashToken => return Some(BoundBinaryOperatorKind::Division),
-                _ => {}
-            }
-        } else if left_type == ObjectKind::Boolean && right_type == ObjectKind::Boolean {
-            match kind {
-                SyntaxKind::AmpersandAmpersandToken => {
-                    return Some(BoundBinaryOperatorKind::LogicalAnd)
-                }
-                SyntaxKind::PipePipeToken => return Some(BoundBinaryOperatorKind::LogicalOr),
-                _ => {}
-            }
-        }
-        None
-    }
-
     fn bind_unary_expression(&mut self, e: &UnaryExpressionSyntax) -> Box<BoundExpression> {
         let operand = self.bind_expression(e.operand.create_ref());
-        let operator_kind =
-            self.bind_unary_operator_kind(e.operator_token.kind, operand.get_type());
-        if let Some(operator_kind) = operator_kind {
+        let operator = BoundUnaryOperator::bind(e.operator_token.kind, operand.get_type());
+        if let Some(operator) = operator {
             Box::new(BoundExpression::Unary(BoundUnaryExpression {
-                operator_kind,
+                operator,
                 operand,
             }))
         } else {
@@ -162,26 +138,6 @@ impl Binder {
             ));
             operand
         }
-    }
-
-    fn bind_unary_operator_kind(
-        &self,
-        kind: SyntaxKind,
-        operand_type: ObjectKind,
-    ) -> Option<BoundUnaryOperatorKind> {
-        match operand_type {
-            ObjectKind::Number => match kind {
-                SyntaxKind::PlusToken => return Some(BoundUnaryOperatorKind::Identity),
-                SyntaxKind::MinusToken => return Some(BoundUnaryOperatorKind::Negation),
-                _ => {}
-            },
-            ObjectKind::Boolean => match kind {
-                SyntaxKind::BangToken => return Some(BoundUnaryOperatorKind::LogicalNegation),
-                _ => {}
-            },
-            _ => {}
-        }
-        None
     }
 
     fn bind_literal_expression(

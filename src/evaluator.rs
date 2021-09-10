@@ -30,7 +30,7 @@ impl Evaluator {
     fn evaluate_binary_expression(&self, e: &BoundBinaryExpression) -> Object {
         let left = self.evaluate_expression(&e.left);
         let right = self.evaluate_expression(&e.right);
-        match e.operator_kind {
+        match e.operator.kind {
             BoundBinaryOperatorKind::Addition => {
                 Object::Number(left.as_number() + right.as_number())
             }
@@ -54,7 +54,7 @@ impl Evaluator {
 
     fn evaluate_unary_expression(&self, e: &BoundUnaryExpression) -> Object {
         let operand = self.evaluate_expression(&e.operand);
-        match e.operator_kind {
+        match e.operator.kind {
             BoundUnaryOperatorKind::Identity => operand,
             BoundUnaryOperatorKind::Negation => Object::Number(-operand.as_number()),
             BoundUnaryOperatorKind::LogicalNegation => Object::Boolean(!operand.as_boolean()),

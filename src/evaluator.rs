@@ -1,7 +1,10 @@
 use crate::plumbing::Object;
 use crate::syntax::BinaryExpressionSyntax;
 use crate::syntax::ExpressionSyntax;
+use crate::syntax::LiteralExpressionSyntax;
+use crate::syntax::ParenthesizedExpressionSyntax;
 use crate::syntax::SyntaxKind;
+use crate::syntax::UnaryExpressionSyntax;
 
 pub(crate) struct Evaluator {
     root: Box<ExpressionSyntax>,
@@ -21,6 +24,7 @@ impl Evaluator {
             ExpressionSyntax::Binary(e) => self.evaluate_binary_expression(e),
             ExpressionSyntax::Unary(e) => self.evaluate_unary_expression(e),
             ExpressionSyntax::Literal(e) => self.evaluate_literal_expression(e),
+            ExpressionSyntax::Parenthesized(e) => self.evaluate_parenthesized_expression(e),
         }
     }
 
@@ -36,7 +40,7 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_unary_expression(&self, e: &crate::syntax::UnaryExpressionSyntax) -> i64 {
+    fn evaluate_unary_expression(&self, e: &UnaryExpressionSyntax) -> i64 {
         let operand = self.evaluate_expression(&e.operand);
         match e.operator_token.kind {
             SyntaxKind::PlusToken => operand,
@@ -45,10 +49,14 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_literal_expression(&self, e: &crate::syntax::LiteralExpressionSyntax) -> i64 {
+    fn evaluate_literal_expression(&self, e: &LiteralExpressionSyntax) -> i64 {
         match e.literal_token.value {
             Object::Number(n) => n,
             _ => panic!("No value for literal token"),
         }
+    }
+
+    fn evaluate_parenthesized_expression(&self, e: &ParenthesizedExpressionSyntax) -> i64 {
+        self.evaluate_expression(&e.expression)
     }
 }

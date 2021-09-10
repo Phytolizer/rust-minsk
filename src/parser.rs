@@ -3,6 +3,7 @@ use crate::plumbing::Object;
 use crate::syntax::BinaryExpressionSyntax;
 use crate::syntax::ExpressionSyntax;
 use crate::syntax::LiteralExpressionSyntax;
+use crate::syntax::ParenthesizedExpressionSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
 use crate::syntax::SyntaxTree;
@@ -116,6 +117,18 @@ impl Parser {
     }
 
     fn parse_primary_expression(&mut self) -> Box<ExpressionSyntax> {
+        if self.current().kind == SyntaxKind::OpenParenthesisToken {
+            let open_parenthesis_token = self.next_token();
+            let expression = self.parse_expression();
+            let close_parenthesis_token = self.match_token(SyntaxKind::CloseParenthesisToken);
+            return Box::new(ExpressionSyntax::Parenthesized(
+                ParenthesizedExpressionSyntax {
+                    open_parenthesis_token,
+                    expression,
+                    close_parenthesis_token,
+                },
+            ));
+        }
         let number_token = self.match_token(SyntaxKind::NumberToken);
         Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
             literal_token: number_token,

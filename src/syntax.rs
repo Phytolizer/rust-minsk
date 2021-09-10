@@ -1,3 +1,4 @@
+use crate::parser::Parser;
 use crate::plumbing::Object;
 #[derive(Debug, Clone, Copy, PartialEq)]
 
@@ -16,6 +17,7 @@ pub(crate) enum SyntaxKind {
     BinaryExpression,
     UnaryExpression,
     LiteralExpression,
+    ParenthesizedExpression,
 }
 
 impl SyntaxKind {
@@ -59,9 +61,16 @@ impl Default for SyntaxToken {
 }
 
 pub(crate) struct SyntaxTree {
-    pub(crate) diagnostics: Vec<String>,
     pub(crate) root: Box<ExpressionSyntax>,
     pub(crate) end_of_file_token: SyntaxToken,
+    pub(crate) diagnostics: Vec<String>,
+}
+
+impl SyntaxTree {
+    pub(crate) fn parse(input: &str) -> Self {
+        let mut parser = Parser::new(input);
+        parser.parse()
+    }
 }
 
 #[derive(Debug)]
@@ -135,12 +144,14 @@ pub(crate) enum ExpressionSyntax {
     Binary(BinaryExpressionSyntax),
     Unary(UnaryExpressionSyntax),
     Literal(LiteralExpressionSyntax),
+    Parenthesized(ParenthesizedExpressionSyntax),
 }
 
 pub(crate) enum ExpressionSyntaxRef<'a> {
     Binary(&'a BinaryExpressionSyntax),
     Unary(&'a UnaryExpressionSyntax),
     Literal(&'a LiteralExpressionSyntax),
+    Parenthesized(&'a ParenthesizedExpressionSyntax),
 }
 
 impl<'a> ExpressionSyntaxRef<'a> {
@@ -149,6 +160,7 @@ impl<'a> ExpressionSyntaxRef<'a> {
             ExpressionSyntaxRef::Binary(_) => SyntaxKind::BinaryExpression,
             ExpressionSyntaxRef::Unary(_) => SyntaxKind::UnaryExpression,
             ExpressionSyntaxRef::Literal(_) => SyntaxKind::LiteralExpression,
+            ExpressionSyntaxRef::Parenthesized(_) => SyntaxKind::ParenthesizedExpression,
         }
     }
 
@@ -164,6 +176,11 @@ impl<'a> ExpressionSyntaxRef<'a> {
                 SyntaxNodeRef::Expression(e.operand.create_ref()),
             ],
             ExpressionSyntaxRef::Literal(e) => vec![SyntaxNodeRef::Token(&e.literal_token)],
+            ExpressionSyntaxRef::Parenthesized(e) => vec![
+                SyntaxNodeRef::Token(&e.open_parenthesis_token),
+                SyntaxNodeRef::Expression(e.expression.create_ref()),
+                SyntaxNodeRef::Token(&e.close_parenthesis_token),
+            ],
         }
     }
 }
@@ -174,6 +191,7 @@ impl ExpressionSyntax {
             ExpressionSyntax::Binary(e) => ExpressionSyntaxRef::Binary(e),
             ExpressionSyntax::Unary(e) => ExpressionSyntaxRef::Unary(e),
             ExpressionSyntax::Literal(e) => ExpressionSyntaxRef::Literal(e),
+            ExpressionSyntax::Parenthesized(e) => ExpressionSyntaxRef::Parenthesized(e),
         }
     }
 }
@@ -194,4 +212,11 @@ pub(crate) struct UnaryExpressionSyntax {
 #[derive(Debug)]
 pub(crate) struct LiteralExpressionSyntax {
     pub(crate) literal_token: SyntaxToken,
+}
+
+#[derive(Debug)]
+pub(crate) struct ParenthesizedExpressionSyntax {
+    pub(crate) open_parenthesis_token: SyntaxToken,
+    pub(crate) expression: Box<ExpressionSyntax>,
+    pub(crate) close_parenthesis_token: SyntaxToken,
 }

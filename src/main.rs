@@ -4,10 +4,12 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
 
+use crate::binding::Binder;
 use crate::evaluator::Evaluator;
 use crate::syntax::SyntaxNodeRef;
 use crate::syntax::SyntaxTree;
 
+mod binding;
 mod evaluator;
 mod lexer;
 mod parser;
@@ -44,17 +46,26 @@ fn main() {
         }
 
         let syntax_tree = SyntaxTree::parse(&line);
+        let mut binder = Binder::new();
+        let bound_expression = binder.bind_expression(syntax_tree.root.create_ref());
+
+        let diagnostics = syntax_tree
+            .diagnostics
+            .iter()
+            .chain(binder.diagnostics.iter())
+            .collect::<Vec<_>>();
+
         if show_tree {
             print!("\x1b[2;37m");
             SyntaxNodeRef::Expression(syntax_tree.root.create_ref()).pretty_print(&mut stdout());
         }
-        if !syntax_tree.diagnostics.is_empty() {
+        if !diagnostics.is_empty() {
             print!("\x1b[0;31m");
-            for diagnostic in &syntax_tree.diagnostics {
+            for diagnostic in diagnostics {
                 println!("{}", diagnostic);
             }
         } else {
-            let evaluator = Evaluator::new(syntax_tree.root);
+            let evaluator = Evaluator::new(bound_expression);
             print!("\x1b[35m");
             println!("{}", evaluator.evaluate());
         }

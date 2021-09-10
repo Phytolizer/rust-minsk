@@ -6,6 +6,21 @@ pub(crate) enum Object {
     Number(i64),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum ObjectKind {
+    Null,
+    Number,
+}
+
+impl Object {
+    pub(crate) fn kind(&self) -> ObjectKind {
+        match self {
+            Object::Null => ObjectKind::Null,
+            Object::Number(_) => ObjectKind::Number,
+        }
+    }
+}
+
 impl Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

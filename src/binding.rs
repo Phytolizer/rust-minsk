@@ -59,6 +59,8 @@ pub(crate) enum BoundBinaryOperatorKind {
     Division,
     LogicalAnd,
     LogicalOr,
+    Equality,
+    Inequality,
 }
 
 pub(crate) struct BoundBinaryExpression {

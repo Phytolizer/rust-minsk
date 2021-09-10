@@ -13,6 +13,8 @@ pub(crate) enum SyntaxKind {
     BangToken,
     AmpersandAmpersandToken,
     PipePipeToken,
+    EqualsEqualsToken,
+    BangEqualsToken,
     OpenParenthesisToken,
     CloseParenthesisToken,
     EndOfFileToken,
@@ -30,8 +32,9 @@ pub(crate) enum SyntaxKind {
 impl SyntaxKind {
     pub(crate) fn get_binary_operator_precedence(&self) -> usize {
         match self {
-            SyntaxKind::StarToken | SyntaxKind::SlashToken => 4,
-            SyntaxKind::PlusToken | SyntaxKind::MinusToken => 3,
+            SyntaxKind::StarToken | SyntaxKind::SlashToken => 5,
+            SyntaxKind::PlusToken | SyntaxKind::MinusToken => 4,
+            SyntaxKind::EqualsEqualsToken | SyntaxKind::BangEqualsToken => 3,
             SyntaxKind::AmpersandAmpersandToken => 2,
             SyntaxKind::PipePipeToken => 1,
             _ => 0,
@@ -40,7 +43,7 @@ impl SyntaxKind {
 
     pub(crate) fn get_unary_operator_precedence(&self) -> usize {
         match self {
-            SyntaxKind::PlusToken | SyntaxKind::MinusToken | SyntaxKind::BangToken => 5,
+            SyntaxKind::PlusToken | SyntaxKind::MinusToken | SyntaxKind::BangToken => 6,
             _ => 0,
         }
     }

@@ -103,6 +103,10 @@ impl Lexer {
                 self.position += 1;
                 self.kind = SyntaxKind::CloseParenthesisToken;
             }
+            '!' if self.lookahead() == '=' => {
+                self.position += 2;
+                self.kind = SyntaxKind::BangEqualsToken;
+            }
             '!' => {
                 self.position += 1;
                 self.kind = SyntaxKind::BangToken;
@@ -114,6 +118,10 @@ impl Lexer {
             '|' if self.lookahead() == '|' => {
                 self.position += 2;
                 self.kind = SyntaxKind::PipePipeToken;
+            }
+            '=' if self.lookahead() == '=' => {
+                self.position += 2;
+                self.kind = SyntaxKind::EqualsEqualsToken;
             }
             _ => {
                 self.diagnostics

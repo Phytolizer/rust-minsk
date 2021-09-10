@@ -55,6 +55,34 @@ const BINARY_OPERATORS: &[BoundBinaryOperator] = &[
         ObjectKind::Boolean,
         ObjectKind::Boolean,
     ),
+    BoundBinaryOperator::new(
+        SyntaxKind::EqualsEqualsToken,
+        BoundBinaryOperatorKind::Equality,
+        ObjectKind::Number,
+        ObjectKind::Number,
+        ObjectKind::Boolean,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::EqualsEqualsToken,
+        BoundBinaryOperatorKind::Equality,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::BangEqualsToken,
+        BoundBinaryOperatorKind::Inequality,
+        ObjectKind::Number,
+        ObjectKind::Number,
+        ObjectKind::Boolean,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::BangEqualsToken,
+        BoundBinaryOperatorKind::Inequality,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+    ),
 ];
 
 impl BoundBinaryOperator {

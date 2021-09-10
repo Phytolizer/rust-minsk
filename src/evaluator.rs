@@ -49,6 +49,8 @@ impl Evaluator {
             BoundBinaryOperatorKind::LogicalOr => {
                 Object::Boolean(left.as_boolean() || right.as_boolean())
             }
+            BoundBinaryOperatorKind::Equality => Object::Boolean(left == right),
+            BoundBinaryOperatorKind::Inequality => Object::Boolean(left != right),
         }
     }
 

@@ -7,6 +7,7 @@ use crate::syntax::ParenthesizedExpressionSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
 use crate::syntax::SyntaxTree;
+use crate::syntax::UnaryExpressionSyntax;
 
 pub(crate) struct Parser {
     tokens: Vec<SyntaxToken>,
@@ -101,7 +102,18 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, parent_precedence: usize) -> Box<ExpressionSyntax> {
-        let mut left = self.parse_primary_expression();
+        let unary_operator_precedence = self.current().kind.get_unary_operator_precedence();
+        let mut left =
+            if unary_operator_precedence != 0 && unary_operator_precedence >= parent_precedence {
+                let operator_token = self.next_token();
+                let operand = self.parse_expression(unary_operator_precedence);
+                Box::new(ExpressionSyntax::Unary(UnaryExpressionSyntax {
+                    operator_token,
+                    operand,
+                }))
+            } else {
+                self.parse_primary_expression()
+            };
 
         loop {
             let precedence = self.current().kind.get_binary_operator_precedence();

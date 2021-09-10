@@ -28,6 +28,13 @@ impl SyntaxKind {
             _ => 0,
         }
     }
+
+    pub(crate) fn get_unary_operator_precedence(&self) -> usize {
+        match self {
+            SyntaxKind::PlusToken | SyntaxKind::MinusToken => 3,
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

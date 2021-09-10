@@ -5,8 +5,6 @@ use std::io::BufReader;
 use std::io::Write;
 
 use crate::evaluator::Evaluator;
-use crate::parser::Parser;
-use crate::syntax::SyntaxNode;
 use crate::syntax::SyntaxNodeRef;
 use crate::syntax::SyntaxTree;
 

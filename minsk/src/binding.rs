@@ -27,7 +27,7 @@ impl BoundNode {
     }
 }
 
-pub(crate) enum BoundExpression {
+pub enum BoundExpression {
     Binary(BoundBinaryExpression),
     Unary(BoundUnaryExpression),
     Literal(BoundLiteralExpression),
@@ -63,7 +63,7 @@ pub(crate) enum BoundBinaryOperatorKind {
     Inequality,
 }
 
-pub(crate) struct BoundBinaryExpression {
+pub struct BoundBinaryExpression {
     pub(crate) left: Box<BoundExpression>,
     pub(crate) operator: &'static BoundBinaryOperator,
     pub(crate) right: Box<BoundExpression>,
@@ -76,24 +76,21 @@ pub(crate) enum BoundUnaryOperatorKind {
     LogicalNegation,
 }
 
-pub(crate) struct BoundUnaryExpression {
+pub struct BoundUnaryExpression {
     pub(crate) operator: &'static BoundUnaryOperator,
     pub(crate) operand: Box<BoundExpression>,
 }
 
-pub(crate) struct BoundLiteralExpression {
+pub struct BoundLiteralExpression {
     pub(crate) value: Object,
 }
 
-pub(crate) struct Binder {
-    pub(crate) diagnostics: Vec<String>,
+pub struct Binder {
+    pub diagnostics: Vec<String>,
 }
 
 impl Binder {
-    pub(crate) fn bind_expression(
-        &mut self,
-        expression: ExpressionSyntaxRef,
-    ) -> Box<BoundExpression> {
+    pub fn bind_expression(&mut self, expression: ExpressionSyntaxRef) -> Box<BoundExpression> {
         match expression {
             ExpressionSyntaxRef::Binary(e) => self.bind_binary_expression(e),
             ExpressionSyntaxRef::Unary(e) => self.bind_unary_expression(e),
@@ -158,9 +155,15 @@ impl Binder {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             diagnostics: Vec::new(),
         }
+    }
+}
+
+impl Default for Binder {
+    fn default() -> Self {
+        Self::new()
     }
 }

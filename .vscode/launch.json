@@ -5,7 +5,7 @@
             "type": "lldb",
             "preLaunchTask": "rust: cargo build",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/minsk",
+            "program": "${workspaceFolder}/target/debug/mc",
             "sourceLanguages": [
                 "rust"
             ]

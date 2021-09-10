@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Object {
+pub enum Object {
     Null,
     Number(i64),
     Boolean(bool),

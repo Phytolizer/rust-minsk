@@ -6,16 +6,16 @@ use crate::binding::BoundUnaryExpression;
 use crate::binding::BoundUnaryOperatorKind;
 use crate::plumbing::Object;
 
-pub(crate) struct Evaluator {
+pub struct Evaluator {
     root: Box<BoundExpression>,
 }
 
 impl Evaluator {
-    pub(crate) fn new(root: Box<BoundExpression>) -> Self {
+    pub fn new(root: Box<BoundExpression>) -> Self {
         Self { root }
     }
 
-    pub(crate) fn evaluate(&self) -> Object {
+    pub fn evaluate(&self) -> Object {
         self.evaluate_expression(&self.root)
     }
 

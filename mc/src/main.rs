@@ -1,20 +1,12 @@
+use minsk::binding::Binder;
+use minsk::evaluator::Evaluator;
+use minsk::syntax::SyntaxNodeRef;
+use minsk::syntax::SyntaxTree;
+use std::io::Write;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::io::Write;
-
-use crate::binding::Binder;
-use crate::evaluator::Evaluator;
-use crate::syntax::SyntaxNodeRef;
-use crate::syntax::SyntaxTree;
-
-mod binding;
-mod evaluator;
-mod lexer;
-mod parser;
-mod plumbing;
-mod syntax;
 
 fn main() {
     let mut reader = BufReader::new(stdin());

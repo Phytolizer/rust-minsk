@@ -58,7 +58,7 @@ pub(crate) fn keyword_kind(text: &str) -> SyntaxKind {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SyntaxToken {
+pub struct SyntaxToken {
     pub(crate) kind: SyntaxKind,
     pub(crate) position: usize,
     pub(crate) text: String,
@@ -87,26 +87,26 @@ impl Default for SyntaxToken {
     }
 }
 
-pub(crate) struct SyntaxTree {
-    pub(crate) root: Box<ExpressionSyntax>,
-    pub(crate) end_of_file_token: SyntaxToken,
-    pub(crate) diagnostics: Vec<String>,
+pub struct SyntaxTree {
+    pub root: Box<ExpressionSyntax>,
+    pub end_of_file_token: SyntaxToken,
+    pub diagnostics: Vec<String>,
 }
 
 impl SyntaxTree {
-    pub(crate) fn parse(input: &str) -> Self {
+    pub fn parse(input: &str) -> Self {
         let mut parser = Parser::new(input);
         parser.parse()
     }
 }
 
 #[derive(Debug)]
-pub(crate) enum SyntaxNode {
+pub enum SyntaxNode {
     Expression(ExpressionSyntax),
     Token(SyntaxToken),
 }
 
-pub(crate) enum SyntaxNodeRef<'a> {
+pub enum SyntaxNodeRef<'a> {
     Expression(ExpressionSyntaxRef<'a>),
     Token(&'a SyntaxToken),
 }
@@ -125,7 +125,7 @@ impl<'a> SyntaxNodeRef<'a> {
             Self::Token(_) => vec![],
         }
     }
-    pub(crate) fn pretty_print<W: std::io::Write>(&self, writer: &mut W) {
+    pub fn pretty_print<W: std::io::Write>(&self, writer: &mut W) {
         self.pretty_print_node(writer, String::new(), true);
     }
     fn pretty_print_node<W: std::io::Write>(
@@ -158,7 +158,7 @@ impl<'a> SyntaxNodeRef<'a> {
 }
 
 impl SyntaxNode {
-    fn create_ref(&self) -> SyntaxNodeRef {
+    pub fn create_ref(&self) -> SyntaxNodeRef {
         match self {
             SyntaxNode::Expression(e) => SyntaxNodeRef::Expression(e.create_ref()),
             SyntaxNode::Token(t) => SyntaxNodeRef::Token(t),
@@ -167,14 +167,14 @@ impl SyntaxNode {
 }
 
 #[derive(Debug)]
-pub(crate) enum ExpressionSyntax {
+pub enum ExpressionSyntax {
     Binary(BinaryExpressionSyntax),
     Unary(UnaryExpressionSyntax),
     Literal(LiteralExpressionSyntax),
     Parenthesized(ParenthesizedExpressionSyntax),
 }
 
-pub(crate) enum ExpressionSyntaxRef<'a> {
+pub enum ExpressionSyntaxRef<'a> {
     Binary(&'a BinaryExpressionSyntax),
     Unary(&'a UnaryExpressionSyntax),
     Literal(&'a LiteralExpressionSyntax),
@@ -213,7 +213,7 @@ impl<'a> ExpressionSyntaxRef<'a> {
 }
 
 impl ExpressionSyntax {
-    pub(crate) fn create_ref(&self) -> ExpressionSyntaxRef {
+    pub fn create_ref(&self) -> ExpressionSyntaxRef {
         match self {
             ExpressionSyntax::Binary(e) => ExpressionSyntaxRef::Binary(e),
             ExpressionSyntax::Unary(e) => ExpressionSyntaxRef::Unary(e),
@@ -224,26 +224,26 @@ impl ExpressionSyntax {
 }
 
 #[derive(Debug)]
-pub(crate) struct BinaryExpressionSyntax {
+pub struct BinaryExpressionSyntax {
     pub(crate) left: Box<ExpressionSyntax>,
     pub(crate) operator_token: SyntaxToken,
     pub(crate) right: Box<ExpressionSyntax>,
 }
 
 #[derive(Debug)]
-pub(crate) struct UnaryExpressionSyntax {
+pub struct UnaryExpressionSyntax {
     pub(crate) operator_token: SyntaxToken,
     pub(crate) operand: Box<ExpressionSyntax>,
 }
 
 #[derive(Debug)]
-pub(crate) struct LiteralExpressionSyntax {
+pub struct LiteralExpressionSyntax {
     pub(crate) literal_token: SyntaxToken,
     pub(crate) value: Object,
 }
 
 #[derive(Debug)]
-pub(crate) struct ParenthesizedExpressionSyntax {
+pub struct ParenthesizedExpressionSyntax {
     pub(crate) open_parenthesis_token: SyntaxToken,
     pub(crate) expression: Box<ExpressionSyntax>,
     pub(crate) close_parenthesis_token: SyntaxToken,

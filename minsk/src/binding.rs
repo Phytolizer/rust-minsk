@@ -27,7 +27,7 @@ impl BoundNode {
     }
 }
 
-pub enum BoundExpression {
+pub(crate) enum BoundExpression {
     Binary(BoundBinaryExpression),
     Unary(BoundUnaryExpression),
     Literal(BoundLiteralExpression),
@@ -76,21 +76,21 @@ pub(crate) enum BoundUnaryOperatorKind {
     LogicalNegation,
 }
 
-pub struct BoundUnaryExpression {
+pub(crate) struct BoundUnaryExpression {
     pub(crate) operator: &'static BoundUnaryOperator,
     pub(crate) operand: Box<BoundExpression>,
 }
 
-pub struct BoundLiteralExpression {
+pub(crate) struct BoundLiteralExpression {
     pub(crate) value: Object,
 }
 
-pub struct Binder {
-    pub diagnostics: Vec<String>,
+pub(crate) struct Binder {
+    pub(crate) diagnostics: Vec<String>,
 }
 
 impl Binder {
-    pub fn bind_expression(&mut self, expression: ExpressionSyntaxRef) -> Box<BoundExpression> {
+    pub(crate) fn bind_expression(&mut self, expression: ExpressionSyntaxRef) -> Box<BoundExpression> {
         match expression {
             ExpressionSyntaxRef::Binary(e) => self.bind_binary_expression(e),
             ExpressionSyntaxRef::Unary(e) => self.bind_unary_expression(e),
@@ -155,7 +155,7 @@ impl Binder {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             diagnostics: Vec::new(),
         }

@@ -1,4 +1,5 @@
-pub mod binding;
+mod binding;
+pub mod compilation;
 pub mod evaluator;
 pub mod lexer;
 pub mod parser;

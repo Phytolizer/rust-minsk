@@ -1,12 +1,11 @@
-use minsk::binding::Binder;
-use minsk::evaluator::Evaluator;
+use minsk::compilation::Compilation;
 use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
-use std::io::Write;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::Write;
 
 fn main() {
     let mut reader = BufReader::new(stdin());
@@ -38,28 +37,27 @@ fn main() {
         }
 
         let syntax_tree = SyntaxTree::parse(&line);
-        let mut binder = Binder::new();
-        let bound_expression = binder.bind_expression(syntax_tree.root.create_ref());
-
-        let diagnostics = syntax_tree
-            .diagnostics
-            .iter()
-            .chain(binder.diagnostics.iter())
-            .collect::<Vec<_>>();
 
         if show_tree {
             print!("\x1b[2;37m");
-            SyntaxNodeRef::Expression(syntax_tree.root.create_ref()).pretty_print(&mut stdout());
+            let tree_node = SyntaxNodeRef::Expression(syntax_tree.root.create_ref());
+            tree_node.pretty_print(&mut stdout());
         }
-        if !diagnostics.is_empty() {
-            print!("\x1b[0;31m");
-            for diagnostic in diagnostics {
-                println!("{}", diagnostic);
+
+        let compilation = Compilation::new(syntax_tree);
+        let result = compilation.evaluate();
+
+        match result {
+            Err(diagnostics) => {
+                print!("\x1b[0;31m");
+                for diagnostic in diagnostics {
+                    println!("{}", diagnostic);
+                }
             }
-        } else {
-            let evaluator = Evaluator::new(bound_expression);
-            print!("\x1b[35m");
-            println!("{}", evaluator.evaluate());
+            Ok(value) => {
+                print!("\x1b[35m");
+                println!("{}", value);
+            }
         }
         print!("\x1b[0m");
     }

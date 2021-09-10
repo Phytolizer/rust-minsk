@@ -89,7 +89,7 @@ impl Parser {
     }
 
     pub(crate) fn parse(&mut self) -> SyntaxTree {
-        let root = self.parse_expression();
+        let root = self.parse_expression(0);
         let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
         let mut diagnostics = Vec::new();
         std::mem::swap(&mut diagnostics, &mut self.diagnostics);
@@ -100,12 +100,16 @@ impl Parser {
         }
     }
 
-    fn parse_expression(&mut self) -> Box<ExpressionSyntax> {
+    fn parse_expression(&mut self, parent_precedence: usize) -> Box<ExpressionSyntax> {
         let mut left = self.parse_primary_expression();
 
-        while [SyntaxKind::PlusToken, SyntaxKind::MinusToken].contains(&self.current().kind) {
+        loop {
+            let precedence = self.current().kind.get_binary_operator_precedence();
+            if precedence == 0 || precedence <= parent_precedence {
+                break;
+            }
             let operator_token = self.next_token();
-            let right = self.parse_primary_expression();
+            let right = self.parse_expression(precedence);
             left = Box::new(ExpressionSyntax::Binary(BinaryExpressionSyntax {
                 left,
                 operator_token,
@@ -119,7 +123,7 @@ impl Parser {
     fn parse_primary_expression(&mut self) -> Box<ExpressionSyntax> {
         if self.current().kind == SyntaxKind::OpenParenthesisToken {
             let open_parenthesis_token = self.next_token();
-            let expression = self.parse_expression();
+            let expression = self.parse_expression(0);
             let close_parenthesis_token = self.match_token(SyntaxKind::CloseParenthesisToken);
             return Box::new(ExpressionSyntax::Parenthesized(
                 ParenthesizedExpressionSyntax {

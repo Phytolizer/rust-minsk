@@ -5,6 +5,7 @@ use crate::plumbing::Object;
 pub(crate) enum SyntaxKind {
     NumberToken,
     WhitespaceToken,
+    IdentifierToken,
     PlusToken,
     MinusToken,
     StarToken,
@@ -13,6 +14,9 @@ pub(crate) enum SyntaxKind {
     CloseParenthesisToken,
     EndOfFileToken,
     BadToken,
+
+    TrueKeyword,
+    FalseKeyword,
 
     BinaryExpression,
     UnaryExpression,
@@ -34,6 +38,14 @@ impl SyntaxKind {
             SyntaxKind::PlusToken | SyntaxKind::MinusToken => 3,
             _ => 0,
         }
+    }
+}
+
+pub(crate) fn keyword_kind(text: &str) -> SyntaxKind {
+    match text {
+        "true" => SyntaxKind::TrueKeyword,
+        "false" => SyntaxKind::FalseKeyword,
+        _ => SyntaxKind::IdentifierToken,
     }
 }
 
@@ -219,6 +231,7 @@ pub(crate) struct UnaryExpressionSyntax {
 #[derive(Debug)]
 pub(crate) struct LiteralExpressionSyntax {
     pub(crate) literal_token: SyntaxToken,
+    pub(crate) value: Object,
 }
 
 #[derive(Debug)]

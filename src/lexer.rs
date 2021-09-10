@@ -1,6 +1,7 @@
 use crate::plumbing::Object;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
+use crate::syntax::keyword_kind;
 
 pub(crate) struct Lexer {
     input: Vec<char>,
@@ -49,6 +50,15 @@ impl Lexer {
                 };
                 self.value = Object::Number(value);
                 SyntaxKind::NumberToken
+            }
+            c if c.is_alphabetic() => {
+                while self.current().is_alphabetic() {
+                    self.position += 1;
+                }
+                let text = self.input[self.start..self.position]
+                    .iter()
+                    .collect::<String>();
+                keyword_kind(&text)
             }
             c if c.is_whitespace() => {
                 while self.current().is_whitespace() {

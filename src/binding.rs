@@ -174,7 +174,7 @@ impl Binder {
         e: &crate::syntax::LiteralExpressionSyntax,
     ) -> Box<BoundExpression> {
         Box::new(BoundExpression::Literal(BoundLiteralExpression {
-            value: e.literal_token.value.clone(),
+            value: e.value.clone(),
         }))
     }
 

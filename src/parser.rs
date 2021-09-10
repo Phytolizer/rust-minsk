@@ -133,21 +133,34 @@ impl Parser {
     }
 
     fn parse_primary_expression(&mut self) -> Box<ExpressionSyntax> {
-        if self.current().kind == SyntaxKind::OpenParenthesisToken {
-            let open_parenthesis_token = self.next_token();
-            let expression = self.parse_expression(0);
-            let close_parenthesis_token = self.match_token(SyntaxKind::CloseParenthesisToken);
-            return Box::new(ExpressionSyntax::Parenthesized(
-                ParenthesizedExpressionSyntax {
-                    open_parenthesis_token,
-                    expression,
-                    close_parenthesis_token,
-                },
-            ));
+        match self.current().kind {
+            SyntaxKind::OpenParenthesisToken => {
+                let open_parenthesis_token = self.next_token();
+                let expression = self.parse_expression(0);
+                let close_parenthesis_token = self.match_token(SyntaxKind::CloseParenthesisToken);
+                Box::new(ExpressionSyntax::Parenthesized(
+                    ParenthesizedExpressionSyntax {
+                        open_parenthesis_token,
+                        expression,
+                        close_parenthesis_token,
+                    },
+                ))
+            }
+            SyntaxKind::TrueKeyword | SyntaxKind::FalseKeyword => {
+                let keyword_token = self.next_token();
+                let value = keyword_token.kind == SyntaxKind::TrueKeyword;
+                Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
+                    literal_token: keyword_token,
+                    value: Object::Boolean(value),
+                }))
+            }
+            _ => {
+                let number_token = self.match_token(SyntaxKind::NumberToken);
+                Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
+                    value: number_token.value.clone(),
+                    literal_token: number_token,
+                }))
+            }
         }
-        let number_token = self.match_token(SyntaxKind::NumberToken);
-        Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
-            literal_token: number_token,
-        }))
     }
 }

@@ -15,11 +15,11 @@ impl Evaluator {
         Self { root }
     }
 
-    pub(crate) fn evaluate(&self) -> i64 {
+    pub(crate) fn evaluate(&self) -> Object {
         self.evaluate_expression(&self.root)
     }
 
-    fn evaluate_expression(&self, expr: &BoundExpression) -> i64 {
+    fn evaluate_expression(&self, expr: &BoundExpression) -> Object {
         match expr {
             BoundExpression::Binary(e) => self.evaluate_binary_expression(e),
             BoundExpression::Unary(e) => self.evaluate_unary_expression(e),
@@ -27,29 +27,34 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_binary_expression(&self, e: &BoundBinaryExpression) -> i64 {
+    fn evaluate_binary_expression(&self, e: &BoundBinaryExpression) -> Object {
         let left = self.evaluate_expression(&e.left);
         let right = self.evaluate_expression(&e.right);
         match e.operator_kind {
-            BoundBinaryOperatorKind::Addition => left + right,
-            BoundBinaryOperatorKind::Subtraction => left - right,
-            BoundBinaryOperatorKind::Multiplication => left * right,
-            BoundBinaryOperatorKind::Division => left / right,
+            BoundBinaryOperatorKind::Addition => {
+                Object::Number(left.as_number() + right.as_number())
+            }
+            BoundBinaryOperatorKind::Subtraction => {
+                Object::Number(left.as_number() - right.as_number())
+            }
+            BoundBinaryOperatorKind::Multiplication => {
+                Object::Number(left.as_number() * right.as_number())
+            }
+            BoundBinaryOperatorKind::Division => {
+                Object::Number(left.as_number() / right.as_number())
+            }
         }
     }
 
-    fn evaluate_unary_expression(&self, e: &BoundUnaryExpression) -> i64 {
+    fn evaluate_unary_expression(&self, e: &BoundUnaryExpression) -> Object {
         let operand = self.evaluate_expression(&e.operand);
         match e.operator_kind {
             BoundUnaryOperatorKind::Identity => operand,
-            BoundUnaryOperatorKind::Negation => -operand,
+            BoundUnaryOperatorKind::Negation => Object::Number(-operand.as_number()),
         }
     }
 
-    fn evaluate_literal_expression(&self, e: &BoundLiteralExpression) -> i64 {
-        match e.value {
-            Object::Number(n) => n,
-            _ => panic!("No value for literal token"),
-        }
+    fn evaluate_literal_expression(&self, e: &BoundLiteralExpression) -> Object {
+        e.value.clone()
     }
 }

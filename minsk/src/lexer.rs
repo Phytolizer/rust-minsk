@@ -85,6 +85,22 @@ impl Lexer {
                 }
                 self.kind = SyntaxKind::WhitespaceToken;
             }
+            '&' if self.lookahead() == '&' => {
+                self.position += 2;
+                self.kind = SyntaxKind::AmpersandAmpersandToken;
+            }
+            '|' if self.lookahead() == '|' => {
+                self.position += 2;
+                self.kind = SyntaxKind::PipePipeToken;
+            }
+            '=' if self.lookahead() == '=' => {
+                self.position += 2;
+                self.kind = SyntaxKind::EqualsEqualsToken;
+            }
+            '!' if self.lookahead() == '=' => {
+                self.position += 2;
+                self.kind = SyntaxKind::BangEqualsToken;
+            }
             '+' => {
                 self.position += 1;
                 self.kind = SyntaxKind::PlusToken;
@@ -101,6 +117,10 @@ impl Lexer {
                 self.position += 1;
                 self.kind = SyntaxKind::SlashToken;
             }
+            '=' => {
+                self.position += 1;
+                self.kind = SyntaxKind::EqualsToken;
+            }
             '(' => {
                 self.position += 1;
                 self.kind = SyntaxKind::OpenParenthesisToken;
@@ -109,25 +129,9 @@ impl Lexer {
                 self.position += 1;
                 self.kind = SyntaxKind::CloseParenthesisToken;
             }
-            '!' if self.lookahead() == '=' => {
-                self.position += 2;
-                self.kind = SyntaxKind::BangEqualsToken;
-            }
             '!' => {
                 self.position += 1;
                 self.kind = SyntaxKind::BangToken;
-            }
-            '&' if self.lookahead() == '&' => {
-                self.position += 2;
-                self.kind = SyntaxKind::AmpersandAmpersandToken;
-            }
-            '|' if self.lookahead() == '|' => {
-                self.position += 2;
-                self.kind = SyntaxKind::PipePipeToken;
-            }
-            '=' if self.lookahead() == '=' => {
-                self.position += 2;
-                self.kind = SyntaxKind::EqualsEqualsToken;
             }
             _ => {
                 self.diagnostics

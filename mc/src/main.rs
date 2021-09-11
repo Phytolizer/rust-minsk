@@ -1,6 +1,8 @@
 use minsk::compilation::Compilation;
+use minsk::plumbing::Object;
 use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
+use std::collections::HashMap;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufRead;
@@ -11,6 +13,7 @@ fn main() {
     let mut reader = BufReader::new(stdin());
     let mut line = String::new();
     let mut show_tree = false;
+    let mut variables = HashMap::<String, Object>::new();
     loop {
         print!("\x1b[0;32m");
         print!("👉 ");
@@ -45,7 +48,7 @@ fn main() {
         }
 
         let compilation = Compilation::new(syntax_tree);
-        let result = compilation.evaluate();
+        let result = compilation.evaluate(&mut variables);
 
         match result {
             Err(diagnostics) => {

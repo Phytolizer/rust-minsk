@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::diagnostic::DiagnosticBag;
 use crate::plumbing::Object;
 use crate::plumbing::ObjectKind;
@@ -14,6 +16,8 @@ pub(crate) enum BoundNodeKind {
     BinaryExpression,
     UnaryExpression,
     LiteralExpression,
+    VariableExpression,
+    AssignmentExpression,
 }
 
 pub(crate) enum BoundNode {
@@ -32,6 +36,8 @@ pub(crate) enum BoundExpression {
     Binary(BoundBinaryExpression),
     Unary(BoundUnaryExpression),
     Literal(BoundLiteralExpression),
+    Variable(BoundVariableExpression),
+    Assignment(BoundAssignmentExpression),
 }
 
 impl BoundExpression {
@@ -40,6 +46,8 @@ impl BoundExpression {
             BoundExpression::Binary(_) => BoundNodeKind::BinaryExpression,
             BoundExpression::Unary(_) => BoundNodeKind::UnaryExpression,
             BoundExpression::Literal(_) => BoundNodeKind::LiteralExpression,
+            BoundExpression::Variable(_) => BoundNodeKind::VariableExpression,
+            BoundExpression::Assignment(_) => BoundNodeKind::AssignmentExpression,
         }
     }
 
@@ -48,6 +56,8 @@ impl BoundExpression {
             BoundExpression::Binary(e) => e.operator.result_type,
             BoundExpression::Unary(e) => e.operator.result_type,
             BoundExpression::Literal(e) => e.value.kind(),
+            BoundExpression::Variable(e) => e.kind,
+            BoundExpression::Assignment(e) => e.expression.get_type(),
         }
     }
 }
@@ -86,11 +96,22 @@ pub(crate) struct BoundLiteralExpression {
     pub(crate) value: Object,
 }
 
-pub(crate) struct Binder {
-    pub(crate) diagnostics: DiagnosticBag,
+pub(crate) struct BoundVariableExpression {
+    pub(crate) name: String,
+    pub(crate) kind: ObjectKind,
 }
 
-impl Binder {
+pub(crate) struct BoundAssignmentExpression {
+    pub(crate) name: String,
+    pub(crate) expression: Box<BoundExpression>,
+}
+
+pub(crate) struct Binder<'v> {
+    pub(crate) diagnostics: DiagnosticBag,
+    variables: &'v mut HashMap<String, Object>,
+}
+
+impl<'v> Binder<'v> {
     pub(crate) fn bind_expression(
         &mut self,
         expression: ExpressionSyntaxRef,
@@ -100,6 +121,8 @@ impl Binder {
             ExpressionSyntaxRef::Unary(e) => self.bind_unary_expression(e),
             ExpressionSyntaxRef::Literal(e) => self.bind_literal_expression(e),
             ExpressionSyntaxRef::Parenthesized(e) => self.bind_parenthesized_expression(e),
+            ExpressionSyntaxRef::Name(e) => self.bind_name_expression(e),
+            ExpressionSyntaxRef::Assignment(e) => self.bind_assignment_expression(e),
         }
     }
 
@@ -159,15 +182,45 @@ impl Binder {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(variables: &'v mut HashMap<String, Object>) -> Self {
         Self {
             diagnostics: DiagnosticBag::new(),
+            variables,
         }
     }
-}
 
-impl Default for Binder {
-    fn default() -> Self {
-        Self::new()
+    fn bind_name_expression(
+        &mut self,
+        e: &crate::syntax::NameExpressionSyntax,
+    ) -> Box<BoundExpression> {
+        let name = e.identifier_token.text.clone();
+        match self.variables.get(&name) {
+            Some(v) => {
+                let kind = v.kind();
+                Box::new(BoundExpression::Variable(BoundVariableExpression {
+                    name,
+                    kind,
+                }))
+            }
+            None => {
+                self.diagnostics
+                    .report_undefined_name(e.identifier_token.span(), name);
+                Box::new(BoundExpression::Literal(BoundLiteralExpression {
+                    value: Object::Number(0),
+                }))
+            }
+        }
+    }
+
+    fn bind_assignment_expression(
+        &mut self,
+        e: &crate::syntax::AssignmentExpressionSyntax,
+    ) -> Box<BoundExpression> {
+        let name = e.identifier_token.text.clone();
+        let expression = self.bind_expression(e.expression.create_ref());
+        Box::new(BoundExpression::Assignment(BoundAssignmentExpression {
+            name,
+            expression,
+        }))
     }
 }

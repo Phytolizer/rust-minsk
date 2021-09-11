@@ -91,6 +91,11 @@ impl DiagnosticBag {
     pub(crate) fn is_empty(&self) -> bool {
         self.diagnostics.is_empty()
     }
+
+    pub(crate) fn report_undefined_name(&mut self, span: TextSpan, name: String) {
+        let message = format!("Undefined name '{}'.", name);
+        self.report(span, message);
+    }
 }
 
 impl Default for DiagnosticBag {

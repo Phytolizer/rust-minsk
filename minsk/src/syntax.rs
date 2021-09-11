@@ -17,6 +17,7 @@ pub(crate) enum SyntaxKind {
     PipePipeToken,
     EqualsEqualsToken,
     BangEqualsToken,
+    EqualsToken,
     OpenParenthesisToken,
     CloseParenthesisToken,
     EndOfFileToken,
@@ -29,6 +30,8 @@ pub(crate) enum SyntaxKind {
     UnaryExpression,
     LiteralExpression,
     ParenthesizedExpression,
+    NameExpression,
+    AssignmentExpression,
 }
 
 impl SyntaxKind {
@@ -178,6 +181,8 @@ pub enum ExpressionSyntax {
     Unary(UnaryExpressionSyntax),
     Literal(LiteralExpressionSyntax),
     Parenthesized(ParenthesizedExpressionSyntax),
+    Name(NameExpressionSyntax),
+    Assignment(AssignmentExpressionSyntax),
 }
 
 pub enum ExpressionSyntaxRef<'a> {
@@ -185,6 +190,8 @@ pub enum ExpressionSyntaxRef<'a> {
     Unary(&'a UnaryExpressionSyntax),
     Literal(&'a LiteralExpressionSyntax),
     Parenthesized(&'a ParenthesizedExpressionSyntax),
+    Name(&'a NameExpressionSyntax),
+    Assignment(&'a AssignmentExpressionSyntax),
 }
 
 impl<'a> ExpressionSyntaxRef<'a> {
@@ -194,6 +201,8 @@ impl<'a> ExpressionSyntaxRef<'a> {
             ExpressionSyntaxRef::Unary(_) => SyntaxKind::UnaryExpression,
             ExpressionSyntaxRef::Literal(_) => SyntaxKind::LiteralExpression,
             ExpressionSyntaxRef::Parenthesized(_) => SyntaxKind::ParenthesizedExpression,
+            ExpressionSyntaxRef::Name(_) => SyntaxKind::NameExpression,
+            ExpressionSyntaxRef::Assignment(_) => SyntaxKind::AssignmentExpression,
         }
     }
 
@@ -214,6 +223,12 @@ impl<'a> ExpressionSyntaxRef<'a> {
                 SyntaxNodeRef::Expression(e.expression.create_ref()),
                 SyntaxNodeRef::Token(&e.close_parenthesis_token),
             ],
+            ExpressionSyntaxRef::Name(e) => vec![SyntaxNodeRef::Token(&e.identifier_token)],
+            ExpressionSyntaxRef::Assignment(e) => vec![
+                SyntaxNodeRef::Token(&e.identifier_token),
+                SyntaxNodeRef::Token(&e.equals_token),
+                SyntaxNodeRef::Expression(e.expression.create_ref()),
+            ],
         }
     }
 }
@@ -225,6 +240,8 @@ impl ExpressionSyntax {
             ExpressionSyntax::Unary(e) => ExpressionSyntaxRef::Unary(e),
             ExpressionSyntax::Literal(e) => ExpressionSyntaxRef::Literal(e),
             ExpressionSyntax::Parenthesized(e) => ExpressionSyntaxRef::Parenthesized(e),
+            ExpressionSyntax::Name(e) => ExpressionSyntaxRef::Name(e),
+            ExpressionSyntax::Assignment(e) => ExpressionSyntaxRef::Assignment(e),
         }
     }
 }
@@ -253,4 +270,16 @@ pub struct ParenthesizedExpressionSyntax {
     pub(crate) open_parenthesis_token: SyntaxToken,
     pub(crate) expression: Box<ExpressionSyntax>,
     pub(crate) close_parenthesis_token: SyntaxToken,
+}
+
+#[derive(Debug)]
+pub struct NameExpressionSyntax {
+    pub(crate) identifier_token: SyntaxToken,
+}
+
+#[derive(Debug)]
+pub struct AssignmentExpressionSyntax {
+    pub(crate) identifier_token: SyntaxToken,
+    pub(crate) equals_token: SyntaxToken,
+    pub(crate) expression: Box<ExpressionSyntax>,
 }

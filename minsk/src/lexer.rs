@@ -1,7 +1,10 @@
+use crate::diagnostic::DiagnosticBag;
 use crate::plumbing::Object;
+use crate::plumbing::ObjectKind;
 use crate::syntax::keyword_kind;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
+use crate::text::TextSpan;
 
 pub(crate) struct Lexer {
     input: Vec<char>,
@@ -9,7 +12,7 @@ pub(crate) struct Lexer {
     start: usize,
     kind: SyntaxKind,
     value: Object,
-    pub(crate) diagnostics: Vec<String>,
+    pub(crate) diagnostics: DiagnosticBag,
 }
 
 impl Lexer {
@@ -20,7 +23,7 @@ impl Lexer {
             start: 0,
             kind: SyntaxKind::BadToken,
             value: Object::Null,
-            diagnostics: Vec::new(),
+            diagnostics: DiagnosticBag::new(),
         }
     }
 
@@ -56,8 +59,11 @@ impl Lexer {
                 let value = match text.parse::<i64>() {
                     Ok(v) => v,
                     Err(_) => {
-                        self.diagnostics
-                            .push(format!("ERROR: invalid i64: {}", text));
+                        self.diagnostics.report_invalid_number(
+                            TextSpan::new(self.start, self.position - self.start),
+                            &text,
+                            ObjectKind::Number,
+                        );
                         0
                     }
                 };
@@ -125,7 +131,7 @@ impl Lexer {
             }
             _ => {
                 self.diagnostics
-                    .push(format!("ERROR: bad character input: '{}'", self.current()));
+                    .report_bad_character(self.position, self.current());
                 self.position += 1;
                 self.kind = SyntaxKind::BadToken;
             }

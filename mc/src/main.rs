@@ -49,10 +49,27 @@ fn main() {
 
         match result {
             Err(diagnostics) => {
-                print!("\x1b[0;31m");
+                println!();
                 for diagnostic in diagnostics {
+                    let chars = line.chars().collect::<Vec<_>>();
+                    let prefix = chars[0..diagnostic.span.start].iter().collect::<String>();
+                    let error = chars[diagnostic.span.start..diagnostic.span.end()]
+                        .iter()
+                        .collect::<String>();
+                    let suffix = chars[diagnostic.span.end()..].iter().collect::<String>();
+
+                    print!("\x1b[0;31m");
                     println!("{}", diagnostic);
+
+                    print!("\x1b[0m");
+                    print!("\t{}", prefix);
+                    print!("\x1b[0;31m");
+                    print!("{}", error);
+                    print!("\x1b[0m");
+                    print!("{}", suffix);
+                    println!();
                 }
+                println!();
             }
             Ok(value) => {
                 print!("\x1b[35m");

@@ -1,3 +1,4 @@
+use crate::diagnostic::DiagnosticBag;
 use crate::lexer::Lexer;
 use crate::plumbing::Object;
 use crate::syntax::BinaryExpressionSyntax;
@@ -12,7 +13,7 @@ use crate::syntax::UnaryExpressionSyntax;
 pub(crate) struct Parser {
     tokens: Vec<SyntaxToken>,
     position: usize,
-    diagnostics: Vec<String>,
+    diagnostics: DiagnosticBag,
 }
 
 impl Parser {
@@ -73,11 +74,8 @@ impl Parser {
         if self.current().kind == kind {
             self.next_token()
         } else {
-            self.diagnostics.push(format!(
-                "ERROR: unexpected token <{:?}>, expected <{:?}>.",
-                self.current().kind,
-                kind
-            ));
+            self.diagnostics
+                .report_unexpected_token(self.current().span(), self.current().kind, kind);
             SyntaxToken {
                 kind,
                 position: self.current().position,
@@ -90,7 +88,7 @@ impl Parser {
     pub(crate) fn parse(&mut self) -> SyntaxTree {
         let root = self.parse_expression(0);
         let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
-        let mut diagnostics = Vec::new();
+        let mut diagnostics = DiagnosticBag::new();
         std::mem::swap(&mut diagnostics, &mut self.diagnostics);
         SyntaxTree {
             root,

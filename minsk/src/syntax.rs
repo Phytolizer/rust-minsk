@@ -1,5 +1,7 @@
+use crate::diagnostic::DiagnosticBag;
 use crate::parser::Parser;
 use crate::plumbing::Object;
+use crate::text::TextSpan;
 #[derive(Debug, Clone, Copy, PartialEq)]
 
 pub(crate) enum SyntaxKind {
@@ -74,6 +76,10 @@ impl SyntaxToken {
             value,
         }
     }
+
+    pub(crate) fn span(&self) -> TextSpan {
+        TextSpan::new(self.position, self.text.len())
+    }
 }
 
 impl Default for SyntaxToken {
@@ -90,7 +96,7 @@ impl Default for SyntaxToken {
 pub struct SyntaxTree {
     pub root: Box<ExpressionSyntax>,
     pub end_of_file_token: SyntaxToken,
-    pub diagnostics: Vec<String>,
+    pub diagnostics: DiagnosticBag,
 }
 
 impl SyntaxTree {

@@ -1,9 +1,10 @@
 use crate::binding::Binder;
+use crate::diagnostic::DiagnosticBag;
 use crate::evaluator::Evaluator;
 use crate::plumbing::Object;
 use crate::syntax::SyntaxTree;
 
-pub type EvaluationResult = Result<Object, Vec<String>>;
+pub type EvaluationResult = Result<Object, DiagnosticBag>;
 
 pub struct Compilation {
     pub syntax: SyntaxTree,
@@ -22,7 +23,7 @@ impl Compilation {
             .diagnostics
             .into_iter()
             .chain(binder.diagnostics.into_iter())
-            .collect::<Vec<_>>();
+            .collect::<DiagnosticBag>();
         if !diagnostics.is_empty() {
             return Err(diagnostics);
         }

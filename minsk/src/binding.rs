@@ -1,3 +1,4 @@
+use crate::diagnostic::DiagnosticBag;
 use crate::plumbing::Object;
 use crate::plumbing::ObjectKind;
 use crate::syntax::BinaryExpressionSyntax;
@@ -86,11 +87,14 @@ pub(crate) struct BoundLiteralExpression {
 }
 
 pub(crate) struct Binder {
-    pub(crate) diagnostics: Vec<String>,
+    pub(crate) diagnostics: DiagnosticBag,
 }
 
 impl Binder {
-    pub(crate) fn bind_expression(&mut self, expression: ExpressionSyntaxRef) -> Box<BoundExpression> {
+    pub(crate) fn bind_expression(
+        &mut self,
+        expression: ExpressionSyntaxRef,
+    ) -> Box<BoundExpression> {
         match expression {
             ExpressionSyntaxRef::Binary(e) => self.bind_binary_expression(e),
             ExpressionSyntaxRef::Unary(e) => self.bind_unary_expression(e),
@@ -111,12 +115,12 @@ impl Binder {
                 right,
             }))
         } else {
-            self.diagnostics.push(format!(
-                "Binary operator '{}' is not defined for types {:?} and {:?}.",
-                e.operator_token.text,
+            self.diagnostics.report_undefined_binary_operator(
+                e.operator_token.span(),
+                e.operator_token.text.clone(),
                 left.get_type(),
-                right.get_type()
-            ));
+                right.get_type(),
+            );
             left
         }
     }
@@ -130,11 +134,11 @@ impl Binder {
                 operand,
             }))
         } else {
-            self.diagnostics.push(format!(
-                "Unary operator '{}' is not defined for type {:?}",
-                e.operator_token.text,
-                operand.get_type()
-            ));
+            self.diagnostics.report_undefined_unary_operator(
+                e.operator_token.span(),
+                e.operator_token.text.clone(),
+                operand.get_type(),
+            );
             operand
         }
     }
@@ -157,7 +161,7 @@ impl Binder {
 
     pub(crate) fn new() -> Self {
         Self {
-            diagnostics: Vec::new(),
+            diagnostics: DiagnosticBag::new(),
         }
     }
 }

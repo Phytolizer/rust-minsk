@@ -5,6 +5,7 @@ use crate::diagnostic::DiagnosticBag;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::plumbing::Object;
+use crate::text::SourceText;
 use crate::text::TextSpan;
 
 use crossterm::style::Color;
@@ -133,11 +134,19 @@ pub struct SyntaxTree {
 
 impl SyntaxTree {
     pub fn parse(input: &str) -> Self {
-        let mut parser = Parser::new(input);
+        Self::parse_text(&SourceText::from(input.chars().collect()))
+    }
+
+    pub fn parse_text(text: &SourceText) -> Self {
+        let mut parser = Parser::new(text);
         parser.parse()
     }
 
     pub fn parse_tokens(input: &str) -> Vec<SyntaxToken> {
+        Self::parse_tokens_text(&SourceText::from(input.chars().collect()))
+    }
+
+    pub fn parse_tokens_text(input: &SourceText) -> Vec<SyntaxToken> {
         let mut lexer = Lexer::new(input);
         let mut tokens = Vec::new();
         loop {

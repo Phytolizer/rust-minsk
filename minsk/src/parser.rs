@@ -11,6 +11,7 @@ use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
 use crate::syntax::SyntaxTree;
 use crate::syntax::UnaryExpressionSyntax;
+use crate::text::SourceText;
 
 pub(crate) struct Parser {
     tokens: Vec<SyntaxToken>,
@@ -19,7 +20,7 @@ pub(crate) struct Parser {
 }
 
 impl Parser {
-    pub(crate) fn new(text: &str) -> Self {
+    pub(crate) fn new(text: &SourceText) -> Self {
         let mut lexer = Lexer::new(text);
         let mut tokens = Vec::new();
         loop {

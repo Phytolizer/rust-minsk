@@ -4,10 +4,11 @@ use crate::plumbing::ObjectKind;
 use crate::syntax::keyword_kind;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
+use crate::text::SourceText;
 use crate::text::TextSpan;
 
-pub(crate) struct Lexer {
-    input: Vec<char>,
+pub(crate) struct Lexer<'s> {
+    input: &'s [char],
     position: usize,
     start: usize,
     kind: SyntaxKind,
@@ -15,7 +16,7 @@ pub(crate) struct Lexer {
     pub(crate) diagnostics: DiagnosticBag,
 }
 
-impl Lexer {
+impl<'s> Lexer<'s> {
     fn current(&self) -> char {
         self.peek(0)
     }
@@ -24,9 +25,9 @@ impl Lexer {
         self.peek(1)
     }
 
-    pub(crate) fn new(input: &str) -> Self {
+    pub(crate) fn new(input: &'s SourceText) -> Self {
         Self {
-            input: input.chars().collect(),
+            input: input.as_chars(),
             position: 0,
             start: 0,
             kind: SyntaxKind::BadToken,

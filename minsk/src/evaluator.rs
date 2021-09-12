@@ -123,6 +123,7 @@ mod tests {
             ("true != true", Object::Boolean(false)),
             ("1 != 2", Object::Boolean(true)),
             ("1 != 1", Object::Boolean(false)),
+            ("(a = 10) * 10", Object::Number(100)),
         ]
     }
 

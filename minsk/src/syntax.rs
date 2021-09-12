@@ -164,7 +164,7 @@ impl<'a> SyntaxNodeRef<'a> {
         }
     }
 
-    fn children(&self) -> Vec<SyntaxNodeRef> {
+    pub(crate) fn children(self) -> Vec<SyntaxNodeRef<'a>> {
         match self {
             Self::Expression(e) => e.children(),
             Self::Token(_) => vec![],
@@ -243,7 +243,7 @@ impl<'a> ExpressionSyntaxRef<'a> {
         }
     }
 
-    fn children(&self) -> Vec<SyntaxNodeRef> {
+    fn children(self) -> Vec<SyntaxNodeRef<'a>> {
         match self {
             ExpressionSyntaxRef::Binary(e) => vec![
                 SyntaxNodeRef::Expression(e.left.create_ref()),

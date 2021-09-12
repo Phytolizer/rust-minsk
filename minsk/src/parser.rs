@@ -192,3 +192,176 @@ impl Parser {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::vec;
+
+    use crate::syntax::SyntaxKind;
+    use crate::syntax::SyntaxNode;
+    use crate::syntax::SyntaxNodeRef;
+    use crate::syntax::SyntaxTree;
+    use strum::IntoEnumIterator;
+
+    struct AssertingIterator<'tree> {
+        iterator: vec::IntoIter<SyntaxNodeRef<'tree>>,
+        had_error: bool,
+    }
+
+    impl<'tree> AssertingIterator<'tree> {
+        fn new(node: SyntaxNodeRef<'tree>) -> Self {
+            Self {
+                iterator: Self::flatten(node).into_iter(),
+                had_error: false,
+            }
+        }
+
+        fn flatten(node: SyntaxNodeRef) -> Vec<SyntaxNodeRef> {
+            let mut stack = vec![node];
+            let mut result = Vec::new();
+            while let Some(n) = stack.pop() {
+                result.push(n);
+                for child in n.children().into_iter().rev() {
+                    stack.push(child);
+                }
+            }
+            result
+        }
+
+        fn assert_token(&mut self, kind: SyntaxKind, text: &str) {
+            let current = self.iterator.next();
+            assert!(current.is_some());
+            let current = current.unwrap();
+            match current {
+                SyntaxNodeRef::Token(t) => {
+                    if kind != t.kind || text != t.text {
+                        self.had_error = true;
+                    }
+                    assert_eq!(kind, t.kind);
+                    assert_eq!(text, t.text);
+                }
+                _ => {
+                    self.had_error = true;
+                    panic!("not a token: {:?}", current);
+                }
+            }
+        }
+
+        fn assert_node(&mut self, kind: SyntaxKind) {
+            let current = self.iterator.next();
+            assert!(current.is_some());
+            let current = current.unwrap();
+            match current {
+                SyntaxNodeRef::Token(t) => {
+                    self.had_error = true;
+                    panic!("is a token: {:?}", t);
+                }
+                _ => {
+                    if kind != current.kind() {
+                        self.had_error = true;
+                    }
+                    assert_eq!(kind, current.kind());
+                }
+            }
+        }
+    }
+
+    impl<'tree> Drop for AssertingIterator<'tree> {
+        fn drop(&mut self) {
+            if !self.had_error {
+                assert!(self.iterator.next().is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn binary_expression_honors_precedence() {
+        for (op1, op2) in get_binary_operator_pairs() {
+            let op1_precedence = op1.get_binary_operator_precedence();
+            let op2_precedence = op2.get_binary_operator_precedence();
+            let op1_text = op1.get_text().unwrap();
+            let op2_text = op2.get_text().unwrap();
+            let text = format!("a {} b {} c", op1_text, op2_text);
+            let expression = SyntaxTree::parse(&text).root;
+
+            let mut e = AssertingIterator::new(SyntaxNodeRef::Expression(expression.create_ref()));
+            e.assert_node(SyntaxKind::BinaryExpression);
+            if op1_precedence >= op2_precedence {
+                e.assert_node(SyntaxKind::BinaryExpression);
+                e.assert_node(SyntaxKind::NameExpression);
+                e.assert_token(SyntaxKind::IdentifierToken, "a");
+                e.assert_token(op1, op1_text);
+            } else {
+                e.assert_node(SyntaxKind::NameExpression);
+                e.assert_token(SyntaxKind::IdentifierToken, "a");
+                e.assert_token(op1, op1_text);
+                e.assert_node(SyntaxKind::BinaryExpression);
+            }
+            e.assert_node(SyntaxKind::NameExpression);
+            e.assert_token(SyntaxKind::IdentifierToken, "b");
+            e.assert_token(op2, op2_text);
+            e.assert_node(SyntaxKind::NameExpression);
+            e.assert_token(SyntaxKind::IdentifierToken, "c");
+        }
+    }
+
+    #[test]
+    fn unary_operator_honors_precedence() {
+        for (unary, binary) in get_unary_operator_pairs() {
+            let unary_precedence = unary.get_unary_operator_precedence();
+            let binary_precedence = binary.get_binary_operator_precedence();
+            let unary_text = unary.get_text().unwrap();
+            let binary_text = binary.get_text().unwrap();
+            let text = format!("{} a {} b", unary_text, binary_text);
+            let expression = SyntaxTree::parse(&text).root;
+
+            let mut e = AssertingIterator::new(SyntaxNodeRef::Expression(expression.create_ref()));
+            if unary_precedence >= binary_precedence {
+                e.assert_node(SyntaxKind::BinaryExpression);
+                e.assert_node(SyntaxKind::UnaryExpression);
+                e.assert_token(unary, unary_text);
+            } else {
+                e.assert_node(SyntaxKind::UnaryExpression);
+                e.assert_token(unary, unary_text);
+                e.assert_node(SyntaxKind::BinaryExpression);
+            }
+            e.assert_node(SyntaxKind::NameExpression);
+            e.assert_token(SyntaxKind::IdentifierToken, "a");
+            e.assert_token(binary, binary_text);
+            e.assert_node(SyntaxKind::NameExpression);
+            e.assert_token(SyntaxKind::IdentifierToken, "b");
+        }
+    }
+
+    fn get_unary_operator_pairs() -> Vec<(SyntaxKind, SyntaxKind)> {
+        let mut result = Vec::new();
+        for unary in get_unary_operator_kinds() {
+            for binary in get_binary_operator_kinds() {
+                result.push((unary, binary));
+            }
+        }
+        result
+    }
+
+    fn get_unary_operator_kinds() -> Vec<SyntaxKind> {
+        SyntaxKind::iter()
+            .filter(|k| k.get_unary_operator_precedence() > 0)
+            .collect()
+    }
+
+    fn get_binary_operator_kinds() -> Vec<SyntaxKind> {
+        SyntaxKind::iter()
+            .filter(|k| k.get_binary_operator_precedence() > 0)
+            .collect()
+    }
+
+    fn get_binary_operator_pairs() -> Vec<(SyntaxKind, SyntaxKind)> {
+        let mut result = Vec::new();
+        for op1 in get_binary_operator_kinds() {
+            for op2 in get_binary_operator_kinds() {
+                result.push((op1, op2));
+            }
+        }
+        result
+    }
+}

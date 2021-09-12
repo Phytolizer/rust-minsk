@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::stdout;
 
 use crate::diagnostic::DiagnosticBag;
@@ -252,6 +253,14 @@ impl SyntaxNode {
             SyntaxNode::Expression(e) => SyntaxNodeRef::Expression(e.create_ref()),
             SyntaxNode::Token(t) => SyntaxNodeRef::Token(t),
         }
+    }
+}
+
+impl Display for SyntaxNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut text = Vec::<u8>::new();
+        self.create_ref().pretty_print_to(&mut text);
+        write!(f, "{}", String::from_utf8(text).unwrap())
     }
 }
 

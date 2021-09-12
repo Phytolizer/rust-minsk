@@ -218,6 +218,19 @@ impl<'v> Binder<'v> {
     ) -> Box<BoundExpression> {
         let name = e.identifier_token.text.clone();
         let expression = self.bind_expression(e.expression.create_ref());
+
+        let default_value = match expression.get_type() {
+            ObjectKind::Number => Object::Number(0),
+            ObjectKind::Boolean => Object::Boolean(false),
+            ObjectKind::Null => Object::Null,
+        };
+
+        if default_value == Object::Null {
+            panic!("Unsupported variable type {:?}", expression.get_type());
+        }
+
+        self.variables.insert(name.clone(), default_value);
+
         Box::new(BoundExpression::Assignment(BoundAssignmentExpression {
             name,
             expression,

@@ -7,8 +7,8 @@ pub enum Object {
     Boolean(bool),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum ObjectKind {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ObjectKind {
     Null,
     Number,
     Boolean,

@@ -6,6 +6,7 @@ use crate::plumbing::ObjectKind;
 use crate::syntax::BinaryExpressionSyntax;
 use crate::syntax::ExpressionSyntaxRef;
 use crate::syntax::UnaryExpressionSyntax;
+use crate::text::VariableSymbol;
 
 use self::operators::BoundBinaryOperator;
 use self::operators::BoundUnaryOperator;
@@ -56,7 +57,7 @@ impl BoundExpression {
             BoundExpression::Binary(e) => e.operator.result_type,
             BoundExpression::Unary(e) => e.operator.result_type,
             BoundExpression::Literal(e) => e.value.kind(),
-            BoundExpression::Variable(e) => e.kind,
+            BoundExpression::Variable(e) => e.variable.kind,
             BoundExpression::Assignment(e) => e.expression.get_type(),
         }
     }
@@ -97,18 +98,17 @@ pub(crate) struct BoundLiteralExpression {
 }
 
 pub(crate) struct BoundVariableExpression {
-    pub(crate) name: String,
-    pub(crate) kind: ObjectKind,
+    pub(crate) variable: VariableSymbol,
 }
 
 pub(crate) struct BoundAssignmentExpression {
-    pub(crate) name: String,
+    pub(crate) variable: VariableSymbol,
     pub(crate) expression: Box<BoundExpression>,
 }
 
 pub(crate) struct Binder<'v> {
     pub(crate) diagnostics: DiagnosticBag,
-    variables: &'v mut HashMap<String, Object>,
+    variables: &'v mut HashMap<VariableSymbol, Object>,
 }
 
 impl<'v> Binder<'v> {
@@ -182,7 +182,7 @@ impl<'v> Binder<'v> {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub(crate) fn new(variables: &'v mut HashMap<String, Object>) -> Self {
+    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
         Self {
             diagnostics: DiagnosticBag::new(),
             variables,
@@ -194,14 +194,13 @@ impl<'v> Binder<'v> {
         e: &crate::syntax::NameExpressionSyntax,
     ) -> Box<BoundExpression> {
         let name = e.identifier_token.text.clone();
-        match self.variables.get(&name) {
-            Some(v) => {
-                let kind = v.kind();
-                Box::new(BoundExpression::Variable(BoundVariableExpression {
-                    name,
-                    kind,
-                }))
-            }
+
+        let variable = self.variables.keys().find(|k| k.name == name);
+
+        match variable {
+            Some(v) => Box::new(BoundExpression::Variable(BoundVariableExpression {
+                variable: v.clone(),
+            })),
             None => {
                 self.diagnostics
                     .report_undefined_name(e.identifier_token.span(), name);
@@ -219,6 +218,14 @@ impl<'v> Binder<'v> {
         let name = e.identifier_token.text.clone();
         let expression = self.bind_expression(e.expression.create_ref());
 
+        let existing_variable = self.variables.keys().find(|k| k.name == name);
+        if let Some(existing_variable) = existing_variable.cloned() {
+            self.variables.remove(&existing_variable);
+        }
+        let variable = VariableSymbol {
+            name,
+            kind: expression.get_type(),
+        };
         let default_value = match expression.get_type() {
             ObjectKind::Number => Object::Number(0),
             ObjectKind::Boolean => Object::Boolean(false),
@@ -229,10 +236,10 @@ impl<'v> Binder<'v> {
             panic!("Unsupported variable type {:?}", expression.get_type());
         }
 
-        self.variables.insert(name.clone(), default_value);
+        self.variables.insert(variable.clone(), default_value);
 
         Box::new(BoundExpression::Assignment(BoundAssignmentExpression {
-            name,
+            variable,
             expression,
         }))
     }

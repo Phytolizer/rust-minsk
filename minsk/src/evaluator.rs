@@ -7,13 +7,14 @@ use crate::binding::BoundLiteralExpression;
 use crate::binding::BoundUnaryExpression;
 use crate::binding::BoundUnaryOperatorKind;
 use crate::plumbing::Object;
+use crate::text::VariableSymbol;
 
 pub(crate) struct Evaluator<'v> {
-    variables: &'v mut HashMap<String, Object>,
+    variables: &'v mut HashMap<VariableSymbol, Object>,
 }
 
 impl<'v> Evaluator<'v> {
-    pub(crate) fn new(variables: &'v mut HashMap<String, Object>) -> Self {
+    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
         Self { variables }
     }
 
@@ -72,7 +73,7 @@ impl<'v> Evaluator<'v> {
     }
 
     fn evaluate_variable_expression(&self, e: &crate::binding::BoundVariableExpression) -> Object {
-        let value = self.variables.get(&e.name).unwrap();
+        let value = self.variables.get(&e.variable).unwrap();
         value.clone()
     }
 
@@ -81,7 +82,7 @@ impl<'v> Evaluator<'v> {
         e: &crate::binding::BoundAssignmentExpression,
     ) -> Object {
         let value = self.evaluate_expression(&e.expression);
-        self.variables.insert(e.name.clone(), value.clone());
+        self.variables.insert(e.variable.clone(), value.clone());
         value
     }
 }

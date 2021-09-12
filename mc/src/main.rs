@@ -2,6 +2,7 @@ use minsk::compilation::Compilation;
 use minsk::plumbing::Object;
 use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
+use minsk::text::VariableSymbol;
 use std::collections::HashMap;
 use std::io::stdin;
 use std::io::stdout;
@@ -13,7 +14,7 @@ fn main() {
     let mut reader = BufReader::new(stdin());
     let mut line = String::new();
     let mut show_tree = false;
-    let mut variables = HashMap::<String, Object>::new();
+    let mut variables = HashMap::<VariableSymbol, Object>::new();
     loop {
         print!("\x1b[0;32m");
         print!("👉 ");

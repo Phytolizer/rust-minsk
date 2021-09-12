@@ -5,6 +5,7 @@ use crate::diagnostic::DiagnosticBag;
 use crate::evaluator::Evaluator;
 use crate::plumbing::Object;
 use crate::syntax::SyntaxTree;
+use crate::text::VariableSymbol;
 
 pub type EvaluationResult = Result<Object, DiagnosticBag>;
 
@@ -17,7 +18,7 @@ impl Compilation {
         Self { syntax }
     }
 
-    pub fn evaluate(self, variables: &mut HashMap<String, Object>) -> EvaluationResult {
+    pub fn evaluate(self, variables: &mut HashMap<VariableSymbol, Object>) -> EvaluationResult {
         let mut binder = Binder::new(variables);
         let bound_expression = binder.bind_expression(self.syntax.root.create_ref());
         let diagnostics = self

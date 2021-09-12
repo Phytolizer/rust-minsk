@@ -156,40 +156,52 @@ impl Parser {
 
     fn parse_primary_expression(&mut self) -> Box<ExpressionSyntax> {
         match self.current().kind {
-            SyntaxKind::OpenParenthesisToken => {
-                let open_parenthesis_token = self.next_token();
-                let expression = self.parse_expression();
-                let close_parenthesis_token = self.match_token(SyntaxKind::CloseParenthesisToken);
-                Box::new(ExpressionSyntax::Parenthesized(
-                    ParenthesizedExpressionSyntax {
-                        open_parenthesis_token,
-                        expression,
-                        close_parenthesis_token,
-                    },
-                ))
-            }
-            SyntaxKind::TrueKeyword | SyntaxKind::FalseKeyword => {
-                let keyword_token = self.next_token();
-                let value = keyword_token.kind == SyntaxKind::TrueKeyword;
-                Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
-                    literal_token: keyword_token,
-                    value: Object::Boolean(value),
-                }))
-            }
-            SyntaxKind::IdentifierToken => {
-                let identifier_token = self.next_token();
-                Box::new(ExpressionSyntax::Name(NameExpressionSyntax {
-                    identifier_token,
-                }))
-            }
-            _ => {
-                let number_token = self.match_token(SyntaxKind::NumberToken);
-                Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
-                    value: number_token.value.clone(),
-                    literal_token: number_token,
-                }))
-            }
+            SyntaxKind::OpenParenthesisToken => self.parse_parenthesized_expression(),
+            SyntaxKind::TrueKeyword | SyntaxKind::FalseKeyword => self.parse_boolean_literal(),
+            SyntaxKind::NumberToken => self.parse_number_literal(),
+            _ => self.parse_name_expression(),
         }
+    }
+
+    fn parse_number_literal(&mut self) -> Box<ExpressionSyntax> {
+        let number_token = self.match_token(SyntaxKind::NumberToken);
+        Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
+            value: number_token.value.clone(),
+            literal_token: number_token,
+        }))
+    }
+
+    fn parse_parenthesized_expression(&mut self) -> Box<ExpressionSyntax> {
+        let open_parenthesis_token = self.match_token(SyntaxKind::OpenParenthesisToken);
+        let expression = self.parse_expression();
+        let close_parenthesis_token = self.match_token(SyntaxKind::CloseParenthesisToken);
+        Box::new(ExpressionSyntax::Parenthesized(
+            ParenthesizedExpressionSyntax {
+                open_parenthesis_token,
+                expression,
+                close_parenthesis_token,
+            },
+        ))
+    }
+
+    fn parse_boolean_literal(&mut self) -> Box<ExpressionSyntax> {
+        let value = self.current().kind == SyntaxKind::TrueKeyword;
+        let keyword_token = self.match_token(if value {
+            SyntaxKind::TrueKeyword
+        } else {
+            SyntaxKind::FalseKeyword
+        });
+        Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
+            literal_token: keyword_token,
+            value: Object::Boolean(value),
+        }))
+    }
+
+    fn parse_name_expression(&mut self) -> Box<ExpressionSyntax> {
+        let identifier_token = self.match_token(SyntaxKind::IdentifierToken);
+        Box::new(ExpressionSyntax::Name(NameExpressionSyntax {
+            identifier_token,
+        }))
     }
 }
 

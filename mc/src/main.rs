@@ -12,7 +12,6 @@ use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
 use minsk::text::VariableSymbol;
 use std::collections::HashMap;
-use std::collections::LinkedList;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufRead;

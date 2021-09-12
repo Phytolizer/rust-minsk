@@ -2,7 +2,6 @@ use std::fmt::Display;
 use std::io::stdout;
 
 use crate::diagnostic::Diagnostic;
-use crate::diagnostic::DiagnosticBag;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::plumbing::Object;

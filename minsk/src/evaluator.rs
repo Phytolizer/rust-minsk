@@ -158,7 +158,7 @@ mod tests {
             ("true != true", Object::Boolean(false)),
             ("1 != 2", Object::Boolean(true)),
             ("1 != 1", Object::Boolean(false)),
-            ("(a = 10) * a", Object::Number(100)),
+            ("{ var a = 0 (a = 10) * a }", Object::Number(100)),
         ]
     }
 

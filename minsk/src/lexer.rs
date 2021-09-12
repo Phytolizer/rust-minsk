@@ -16,6 +16,14 @@ pub(crate) struct Lexer {
 }
 
 impl Lexer {
+    fn current(&self) -> char {
+        self.peek(0)
+    }
+
+    fn lookahead(&self) -> char {
+        self.peek(1)
+    }
+
     pub(crate) fn new(input: &str) -> Self {
         Self {
             input: input.chars().collect(),
@@ -27,21 +35,6 @@ impl Lexer {
         }
     }
 
-    fn peek(&self, offset: usize) -> char {
-        self.input
-            .get(self.position + offset)
-            .copied()
-            .unwrap_or('\0')
-    }
-
-    fn current(&self) -> char {
-        self.peek(0)
-    }
-
-    fn lookahead(&self) -> char {
-        self.peek(1)
-    }
-
     pub(crate) fn next_token(&mut self) -> SyntaxToken {
         self.start = self.position;
         self.value = Object::Null;
@@ -49,42 +42,9 @@ impl Lexer {
             '\0' => {
                 self.kind = SyntaxKind::EndOfFileToken;
             }
-            c if c.is_numeric() => {
-                while self.current().is_numeric() {
-                    self.position += 1;
-                }
-                let text = self.input[self.start..self.position]
-                    .iter()
-                    .collect::<String>();
-                let value = match text.parse::<i64>() {
-                    Ok(v) => v,
-                    Err(_) => {
-                        self.diagnostics.report_invalid_number(
-                            TextSpan::new(self.start, self.position - self.start),
-                            &text,
-                            ObjectKind::Number,
-                        );
-                        0
-                    }
-                };
-                self.value = Object::Number(value);
-                self.kind = SyntaxKind::NumberToken;
-            }
-            c if c.is_alphabetic() => {
-                while self.current().is_alphabetic() {
-                    self.position += 1;
-                }
-                let text = self.input[self.start..self.position]
-                    .iter()
-                    .collect::<String>();
-                self.kind = keyword_kind(&text);
-            }
-            c if c.is_whitespace() => {
-                while self.current().is_whitespace() {
-                    self.position += 1;
-                }
-                self.kind = SyntaxKind::WhitespaceToken;
-            }
+            c if c.is_numeric() => self.read_number(),
+            c if c.is_alphabetic() => self.read_identifier_or_keyword(),
+            c if c.is_whitespace() => self.read_whitespace(),
             '&' if self.lookahead() == '&' => {
                 self.position += 2;
                 self.kind = SyntaxKind::AmpersandAmpersandToken;
@@ -146,6 +106,52 @@ impl Lexer {
             self.input[self.start..self.position].iter().collect(),
             self.value.clone(),
         )
+    }
+
+    fn peek(&self, offset: usize) -> char {
+        self.input
+            .get(self.position + offset)
+            .copied()
+            .unwrap_or('\0')
+    }
+
+    fn read_identifier_or_keyword(&mut self) {
+        while self.current().is_alphabetic() {
+            self.position += 1;
+        }
+        let text = self.input[self.start..self.position]
+            .iter()
+            .collect::<String>();
+        self.kind = keyword_kind(&text);
+    }
+
+    fn read_number(&mut self) {
+        while self.current().is_numeric() {
+            self.position += 1;
+        }
+        let text = self.input[self.start..self.position]
+            .iter()
+            .collect::<String>();
+        let value = match text.parse::<i64>() {
+            Ok(v) => v,
+            Err(_) => {
+                self.diagnostics.report_invalid_number(
+                    TextSpan::new(self.start, self.position - self.start),
+                    &text,
+                    ObjectKind::Number,
+                );
+                0
+            }
+        };
+        self.value = Object::Number(value);
+        self.kind = SyntaxKind::NumberToken;
+    }
+
+    fn read_whitespace(&mut self) {
+        while self.current().is_whitespace() {
+            self.position += 1;
+        }
+        self.kind = SyntaxKind::WhitespaceToken;
     }
 }
 

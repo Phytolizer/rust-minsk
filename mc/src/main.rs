@@ -48,6 +48,7 @@ fn main() {
             tree_node.pretty_print();
         }
 
+        let source_text = syntax_tree.source_text.clone();
         let compilation = Compilation::new(syntax_tree);
         let result = compilation.evaluate(&mut variables);
 
@@ -56,13 +57,21 @@ fn main() {
                 println!();
                 for diagnostic in diagnostics {
                     let chars = line.chars().collect::<Vec<_>>();
-                    let prefix = chars[0..diagnostic.span.start].iter().collect::<String>();
+                    let line_index = source_text.get_line_index(diagnostic.span.start);
+                    let line_number = line_index + 1;
+                    let char_offset = diagnostic.span.start - source_text.lines[line_index].start + 1;
+                    let prefix = chars[source_text.lines[line_index].start..diagnostic.span.start]
+                        .iter()
+                        .collect::<String>();
                     let error = chars[diagnostic.span.start..diagnostic.span.end()]
                         .iter()
                         .collect::<String>();
-                    let suffix = chars[diagnostic.span.end()..].iter().collect::<String>();
+                    let suffix = chars[diagnostic.span.end()..source_text.lines[line_index].end()]
+                        .iter()
+                        .collect::<String>();
 
                     print!("\x1b[0;31m");
+                    print!("({}, {}): ", line_number, char_offset);
                     println!("{}", diagnostic);
 
                     print!("\x1b[0m");

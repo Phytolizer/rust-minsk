@@ -32,6 +32,7 @@ pub struct VariableSymbol {
     pub kind: ObjectKind,
 }
 
+#[derive(Clone)]
 pub struct SourceText {
     text: Vec<char>,
     pub lines: Vec<TextLine>,
@@ -50,19 +51,19 @@ impl SourceText {
     }
 
     pub fn get_line_index(&self, position: usize) -> usize {
-        let mut lower = 0;
-        let mut upper = self.text.len() - 1;
+        let mut lower = 0isize;
+        let mut upper = self.lines.len() as isize - 1;
         while lower <= upper {
             let index = lower + (upper - lower) / 2;
-            let start = self.lines[index].start;
+            let start = self.lines[index as usize].start;
 
             match start.cmp(&position) {
-                Ordering::Less => upper = index - 1,
-                Ordering::Equal => return index,
-                Ordering::Greater => lower = index + 1,
+                Ordering::Less => lower = index + 1,
+                Ordering::Equal => return index as usize,
+                Ordering::Greater => upper = index - 1,
             }
         }
-        lower - 1
+        (lower - 1) as usize
     }
 
     fn parse_lines(text: &[char]) -> Vec<TextLine> {
@@ -104,19 +105,19 @@ impl SourceText {
         &self.text
     }
 
-    fn to_string_bounded(&self, start: usize, length: usize) -> String {
+    pub fn to_string_bounded(&self, start: usize, length: usize) -> String {
         self.text[start..start + length].iter().collect()
     }
 
-    fn to_string_spanned(&self, span: TextSpan) -> String {
+    pub fn to_string_spanned(&self, span: TextSpan) -> String {
         self.to_string_bounded(span.start, span.length)
     }
 
-    fn to_string_line(&self, line: &TextLine) -> String {
+    pub fn to_string_line(&self, line: &TextLine) -> String {
         self.to_string_spanned(line.span())
     }
 
-    fn to_string_line_including_line_break(&self, line: &TextLine) -> String {
+    pub fn to_string_line_including_line_break(&self, line: &TextLine) -> String {
         self.to_string_spanned(line.span_including_line_break())
     }
 }
@@ -140,6 +141,7 @@ fn add_line(
     });
 }
 
+#[derive(Clone)]
 pub struct TextLine {
     pub start: usize,
     pub length: usize,

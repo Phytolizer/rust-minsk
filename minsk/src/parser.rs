@@ -17,11 +17,12 @@ pub(crate) struct Parser {
     tokens: Vec<SyntaxToken>,
     position: usize,
     diagnostics: DiagnosticBag,
+    text: SourceText,
 }
 
 impl Parser {
-    pub(crate) fn new(text: &SourceText) -> Self {
-        let mut lexer = Lexer::new(text);
+    pub(crate) fn new(text: SourceText) -> Self {
+        let mut lexer = Lexer::new(&text);
         let mut tokens = Vec::new();
         loop {
             let token = lexer.next_token();
@@ -37,6 +38,7 @@ impl Parser {
             tokens,
             position: 0,
             diagnostics: lexer.diagnostics,
+            text,
         }
     }
 
@@ -91,15 +93,14 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse(&mut self) -> SyntaxTree {
+    pub(crate) fn parse(mut self) -> SyntaxTree {
         let root = self.parse_expression();
         let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
-        let mut diagnostics = DiagnosticBag::new();
-        std::mem::swap(&mut diagnostics, &mut self.diagnostics);
         SyntaxTree {
             root,
             end_of_file_token,
-            diagnostics,
+            diagnostics: self.diagnostics,
+            source_text: self.text,
         }
     }
 

@@ -127,6 +127,7 @@ impl Default for SyntaxToken {
 }
 
 pub struct SyntaxTree {
+    pub source_text: SourceText,
     pub root: Box<ExpressionSyntax>,
     pub end_of_file_token: SyntaxToken,
     pub diagnostics: DiagnosticBag,
@@ -134,11 +135,11 @@ pub struct SyntaxTree {
 
 impl SyntaxTree {
     pub fn parse(input: &str) -> Self {
-        Self::parse_text(&SourceText::from(input.chars().collect()))
+        Self::parse_text(SourceText::from(input.chars().collect()))
     }
 
-    pub fn parse_text(text: &SourceText) -> Self {
-        let mut parser = Parser::new(text);
+    pub fn parse_text(text: SourceText) -> Self {
+        let parser = Parser::new(text);
         parser.parse()
     }
 

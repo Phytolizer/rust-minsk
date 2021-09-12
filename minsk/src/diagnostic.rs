@@ -103,6 +103,16 @@ impl DiagnosticBag {
         let message = format!("Variable '{}' is already declared.", name);
         self.report(span, message);
     }
+
+    pub(crate) fn report_cannot_convert(
+        &mut self,
+        span: TextSpan,
+        from_type: ObjectKind,
+        to_type: ObjectKind,
+    ) {
+        let message = format!("Cannot convert {:?} to {:?}.", from_type, to_type);
+        self.report(span, message);
+    }
 }
 
 impl Default for DiagnosticBag {

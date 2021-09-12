@@ -5,6 +5,7 @@ use crate::syntax::AssignmentExpressionSyntax;
 use crate::syntax::BinaryExpressionSyntax;
 use crate::syntax::CompilationUnitSyntaxRef;
 use crate::syntax::ExpressionSyntaxRef;
+use crate::syntax::SyntaxNodeRef;
 use crate::syntax::UnaryExpressionSyntax;
 use crate::text::VariableSymbol;
 
@@ -227,14 +228,24 @@ impl Binder {
         let name = e.identifier_token.text.clone();
         let expression = self.bind_expression(e.expression.create_ref());
 
-        let variable = VariableSymbol {
-            name: name.clone(),
-            kind: expression.get_type(),
+        let variable = if let Some(variable) = self.scope.try_lookup(&name) {
+            variable.clone()
+        } else {
+            let variable = VariableSymbol {
+                name: name.clone(),
+                kind: expression.get_type(),
+            };
+            self.scope.try_declare(variable.clone());
+            variable
         };
 
-        if !self.scope.try_declare(variable.clone()) {
-            self.diagnostics
-                .report_variable_already_declared(e.identifier_token.span(), &name);
+        if expression.get_type() != variable.kind {
+            self.diagnostics.report_cannot_convert(
+                SyntaxNodeRef::Expression(e.expression.create_ref()).span(),
+                expression.get_type(),
+                variable.kind,
+            );
+            return expression;
         }
 
         Box::new(BoundExpression::Assignment(BoundAssignmentExpression {

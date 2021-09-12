@@ -206,10 +206,15 @@ impl<'a> SyntaxNodeRef<'a> {
     }
 
     pub fn span(&self) -> TextSpan {
-        let children = self.children();
-        let first = children.first().unwrap().span();
-        let last = children.last().unwrap().span();
-        TextSpan::from_bounds(first.start, last.end())
+        match self {
+            Self::Token(t) => t.span(),
+            _ => {
+                let children = self.children();
+                let first = children.first().unwrap().span();
+                let last = children.last().unwrap().span();
+                TextSpan::from_bounds(first.start, last.end())
+            }
+        }
     }
 
     pub fn pretty_print(&self) {

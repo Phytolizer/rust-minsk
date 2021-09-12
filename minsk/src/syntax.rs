@@ -4,7 +4,7 @@ use crate::parser::Parser;
 use crate::plumbing::Object;
 use crate::text::TextSpan;
 
-#[derive(Debug, Clone, Copy, PartialEq, strum_macros::EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum_macros::EnumIter)]
 pub(crate) enum SyntaxKind {
     NumberToken,
     WhitespaceToken,

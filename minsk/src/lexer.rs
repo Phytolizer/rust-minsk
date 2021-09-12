@@ -157,10 +157,15 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
+
     use crate::syntax::SyntaxKind;
     use crate::syntax::SyntaxTree;
 
-    #[derive(Debug, Clone, Copy)]
+    use strum::IntoEnumIterator;
+
+    #[derive(Debug, Clone, Copy, PartialEq)]
     struct TestToken {
         kind: SyntaxKind,
         text: &'static str,
@@ -171,26 +176,17 @@ mod tests {
     }
 
     fn get_tokens() -> Vec<TestToken> {
+        let fixed_tokens =
+            SyntaxKind::iter().filter_map(|k| k.get_text().map(|t| test_token(k, t)));
         vec![
             test_token(SyntaxKind::NumberToken, "1"),
             test_token(SyntaxKind::NumberToken, "123"),
             test_token(SyntaxKind::IdentifierToken, "a"),
             test_token(SyntaxKind::IdentifierToken, "abc"),
-            test_token(SyntaxKind::PlusToken, "+"),
-            test_token(SyntaxKind::MinusToken, "-"),
-            test_token(SyntaxKind::StarToken, "*"),
-            test_token(SyntaxKind::SlashToken, "/"),
-            test_token(SyntaxKind::EqualsEqualsToken, "=="),
-            test_token(SyntaxKind::BangEqualsToken, "!="),
-            test_token(SyntaxKind::BangToken, "!"),
-            test_token(SyntaxKind::EqualsToken, "="),
-            test_token(SyntaxKind::AmpersandAmpersandToken, "&&"),
-            test_token(SyntaxKind::PipePipeToken, "||"),
-            test_token(SyntaxKind::OpenParenthesisToken, "("),
-            test_token(SyntaxKind::CloseParenthesisToken, ")"),
-            test_token(SyntaxKind::FalseKeyword, "false"),
-            test_token(SyntaxKind::TrueKeyword, "true"),
         ]
+        .into_iter()
+        .chain(fixed_tokens.into_iter())
+        .collect()
     }
 
     fn get_separators() -> Vec<TestToken> {
@@ -246,6 +242,27 @@ mod tests {
             }
         }
         token_pairs_with_separator
+    }
+
+    #[test]
+    fn tests_all_tokens() {
+        let kinds = SyntaxKind::iter()
+            .filter(|k| {
+                format!("{:?}", k).ends_with("Keyword") || format!("{:?}", k).ends_with("Token")
+            })
+            .collect::<Vec<_>>();
+        let tested_token_kinds = get_tokens()
+            .into_iter()
+            .chain(get_separators().into_iter())
+            .map(|t| t.kind)
+            .collect::<Vec<_>>();
+        let untested_token_kinds = kinds
+            .iter()
+            .filter(|k| !tested_token_kinds.contains(k))
+            .filter(|k| ![SyntaxKind::BadToken, SyntaxKind::EndOfFileToken].contains(k))
+            .copied()
+            .collect::<HashSet<SyntaxKind>>();
+        assert_eq!(untested_token_kinds, HashSet::new());
     }
 
     #[test]

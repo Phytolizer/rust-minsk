@@ -29,6 +29,7 @@ impl TextSpan {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VariableSymbol {
     pub name: String,
+    pub is_read_only: bool,
     pub kind: ObjectKind,
 }
 

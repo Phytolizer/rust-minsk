@@ -43,8 +43,10 @@ pub(crate) enum SyntaxKind {
     EndOfFileToken,
     BadToken,
 
-    TrueKeyword,
     FalseKeyword,
+    LetKeyword,
+    TrueKeyword,
+    VarKeyword,
 
     BinaryExpression,
     UnaryExpression,
@@ -55,6 +57,7 @@ pub(crate) enum SyntaxKind {
 
     BlockStatement,
     ExpressionStatement,
+    VariableDeclarationStatement,
 
     CompilationUnit,
 }
@@ -95,7 +98,9 @@ impl SyntaxKind {
             SyntaxKind::OpenBraceToken => Some("{"),
             SyntaxKind::CloseBraceToken => Some("}"),
             SyntaxKind::FalseKeyword => Some("false"),
+            SyntaxKind::LetKeyword => Some("let"),
             SyntaxKind::TrueKeyword => Some("true"),
+            SyntaxKind::VarKeyword => Some("var"),
             _ => None,
         }
     }
@@ -103,8 +108,10 @@ impl SyntaxKind {
 
 pub(crate) fn keyword_kind(text: &str) -> SyntaxKind {
     match text {
-        "true" => SyntaxKind::TrueKeyword,
         "false" => SyntaxKind::FalseKeyword,
+        "let" => SyntaxKind::LetKeyword,
+        "true" => SyntaxKind::TrueKeyword,
+        "var" => SyntaxKind::VarKeyword,
         _ => SyntaxKind::IdentifierToken,
     }
 }

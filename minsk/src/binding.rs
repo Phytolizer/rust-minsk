@@ -11,7 +11,9 @@ use crate::syntax::expressions::UnaryExpressionSyntax;
 use crate::syntax::statements::BlockStatementSyntax;
 use crate::syntax::statements::ExpressionStatementSyntax;
 use crate::syntax::statements::StatementSyntaxRef;
+use crate::syntax::statements::VariableDeclarationStatementSyntax;
 use crate::syntax::CompilationUnitSyntaxRef;
+use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxNodeRef;
 use crate::text::VariableSymbol;
 
@@ -32,6 +34,7 @@ pub(crate) enum BoundNodeKind {
 
     BlockStatement,
     ExpressionStatement,
+    VariableDeclarationStatement,
 }
 
 pub(crate) enum BoundNode {
@@ -52,6 +55,7 @@ impl BoundNode {
 pub(crate) enum BoundStatement {
     Block(BoundBlockStatement),
     Expression(BoundExpressionStatement),
+    VariableDeclaration(BoundVariableDeclarationStatement),
 }
 
 impl BoundStatement {
@@ -59,6 +63,7 @@ impl BoundStatement {
         match self {
             BoundStatement::Block(_) => BoundNodeKind::BlockStatement,
             BoundStatement::Expression(_) => BoundNodeKind::ExpressionStatement,
+            BoundStatement::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
         }
     }
 }
@@ -71,6 +76,12 @@ pub(crate) struct BoundBlockStatement {
 #[derive(Debug, Clone)]
 pub(crate) struct BoundExpressionStatement {
     pub(crate) expression: BoundExpression,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundVariableDeclarationStatement {
+    pub(crate) variable: VariableSymbol,
+    pub(crate) initializer: BoundExpression,
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +173,9 @@ impl Binder {
         match statement {
             StatementSyntaxRef::Block(s) => self.bind_block_statement(s),
             StatementSyntaxRef::Expression(s) => self.bind_expression_statement(s),
+            StatementSyntaxRef::VariableDeclaration(s) => {
+                self.bind_variable_declaration_statement(s)
+            }
         }
     }
 
@@ -268,13 +282,15 @@ impl Binder {
         let variable = if let Some(variable) = self.scope.try_lookup(&name) {
             variable.clone()
         } else {
-            let variable = VariableSymbol {
-                name: name.clone(),
-                kind: expression.get_type(),
-            };
-            self.scope.try_declare(variable.clone());
-            variable
+            self.diagnostics
+                .report_undefined_name(e.identifier_token.span(), &name);
+            return expression;
         };
+
+        if variable.is_read_only {
+            self.diagnostics
+                .report_cannot_assign(e.equals_token.span(), &name);
+        }
 
         if expression.get_type() != variable.kind {
             self.diagnostics.report_cannot_convert(
@@ -334,10 +350,18 @@ impl Binder {
     fn bind_block_statement(&mut self, s: &BlockStatementSyntax) -> Box<BoundStatement> {
         let mut statements = Vec::new();
 
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, &mut self.scope);
+        self.scope = BoundScope::new(Some(Box::new(scope)));
+
         for statement_syntax in &s.statements {
             let statement = self.bind_statement(statement_syntax.create_ref());
             statements.push(*statement);
         }
+
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, self.scope.parent.as_mut().unwrap());
+        self.scope = scope;
 
         Box::new(BoundStatement::Block(BoundBlockStatement { statements }))
     }
@@ -347,5 +371,29 @@ impl Binder {
         Box::new(BoundStatement::Expression(BoundExpressionStatement {
             expression: *expression,
         }))
+    }
+
+    fn bind_variable_declaration_statement(
+        &mut self,
+        s: &VariableDeclarationStatementSyntax,
+    ) -> Box<BoundStatement> {
+        let name = s.identifier.text.clone();
+        let initializer = self.bind_expression(s.initializer.create_ref());
+        let is_read_only = s.keyword.kind == SyntaxKind::LetKeyword;
+        let variable = VariableSymbol {
+            name: name.clone(),
+            is_read_only,
+            kind: initializer.get_type(),
+        };
+        if !self.scope.try_declare(variable.clone()) {
+            self.diagnostics
+                .report_variable_already_declared(s.identifier.span(), &name);
+        }
+        Box::new(BoundStatement::VariableDeclaration(
+            BoundVariableDeclarationStatement {
+                variable,
+                initializer: *initializer,
+            },
+        ))
     }
 }

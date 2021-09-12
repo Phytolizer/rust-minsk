@@ -7,6 +7,7 @@ use super::SyntaxToken;
 pub enum StatementSyntax {
     Block(BlockStatementSyntax),
     Expression(ExpressionStatementSyntax),
+    VariableDeclaration(VariableDeclarationStatementSyntax),
 }
 
 impl StatementSyntax {
@@ -14,6 +15,7 @@ impl StatementSyntax {
         match self {
             StatementSyntax::Block(s) => StatementSyntaxRef::Block(s),
             StatementSyntax::Expression(s) => StatementSyntaxRef::Expression(s),
+            StatementSyntax::VariableDeclaration(s) => StatementSyntaxRef::VariableDeclaration(s),
         }
     }
 }
@@ -22,6 +24,7 @@ impl StatementSyntax {
 pub enum StatementSyntaxRef<'a> {
     Block(&'a BlockStatementSyntax),
     Expression(&'a ExpressionStatementSyntax),
+    VariableDeclaration(&'a VariableDeclarationStatementSyntax),
 }
 
 impl<'a> StatementSyntaxRef<'a> {
@@ -29,6 +32,7 @@ impl<'a> StatementSyntaxRef<'a> {
         match self {
             StatementSyntaxRef::Block(_) => SyntaxKind::BlockStatement,
             StatementSyntaxRef::Expression(_) => SyntaxKind::ExpressionStatement,
+            StatementSyntaxRef::VariableDeclaration(_) => SyntaxKind::VariableDeclarationStatement,
         }
     }
 
@@ -49,6 +53,12 @@ impl<'a> StatementSyntaxRef<'a> {
             StatementSyntaxRef::Expression(s) => {
                 vec![SyntaxNodeRef::Expression(s.expression.create_ref())]
             }
+            StatementSyntaxRef::VariableDeclaration(s) => vec![
+                SyntaxNodeRef::Token(&s.keyword),
+                SyntaxNodeRef::Token(&s.identifier),
+                SyntaxNodeRef::Token(&s.equals_token),
+                SyntaxNodeRef::Expression(s.initializer.create_ref()),
+            ],
         }
     }
 }
@@ -63,4 +73,12 @@ pub struct BlockStatementSyntax {
 #[derive(Debug, Clone)]
 pub struct ExpressionStatementSyntax {
     pub expression: ExpressionSyntax,
+}
+
+#[derive(Debug, Clone)]
+pub struct VariableDeclarationStatementSyntax {
+    pub keyword: SyntaxToken,
+    pub identifier: SyntaxToken,
+    pub equals_token: SyntaxToken,
+    pub initializer: ExpressionSyntax,
 }

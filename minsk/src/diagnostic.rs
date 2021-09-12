@@ -113,6 +113,14 @@ impl DiagnosticBag {
         let message = format!("Cannot convert {:?} to {:?}.", from_type, to_type);
         self.report(span, message);
     }
+
+    pub(crate) fn report_cannot_assign(&mut self, span: TextSpan, name: &str) {
+        let message = format!(
+            "Variable '{}' is read-only and cannot be assigned to.",
+            name
+        );
+        self.report(span, message);
+    }
 }
 
 impl Default for DiagnosticBag {

@@ -2,11 +2,14 @@ use std::collections::HashMap;
 
 use crate::binding::BoundBinaryExpression;
 use crate::binding::BoundBinaryOperatorKind;
+use crate::binding::BoundBlockStatement;
 use crate::binding::BoundExpression;
+use crate::binding::BoundExpressionStatement;
 use crate::binding::BoundLiteralExpression;
 use crate::binding::BoundStatement;
 use crate::binding::BoundUnaryExpression;
 use crate::binding::BoundUnaryOperatorKind;
+use crate::binding::BoundVariableDeclarationStatement;
 use crate::plumbing::Object;
 use crate::text::VariableSymbol;
 
@@ -75,6 +78,9 @@ impl<'v> Evaluator<'v> {
         match root {
             BoundStatement::Block(s) => self.evaluate_block_statement(s),
             BoundStatement::Expression(s) => self.evaluate_expression_statement(s),
+            BoundStatement::VariableDeclaration(s) => {
+                self.evaluate_variable_declaration_statement(s)
+            }
         }
     }
 
@@ -99,14 +105,20 @@ impl<'v> Evaluator<'v> {
         }
     }
 
-    fn evaluate_block_statement(&mut self, s: &crate::binding::BoundBlockStatement) {
+    fn evaluate_block_statement(&mut self, s: &BoundBlockStatement) {
         for statement in s.statements.iter() {
             self.evaluate_statement(statement);
         }
     }
 
-    fn evaluate_expression_statement(&mut self, s: &crate::binding::BoundExpressionStatement) {
+    fn evaluate_expression_statement(&mut self, s: &BoundExpressionStatement) {
         self.last_value = self.evaluate_expression(&s.expression);
+    }
+
+    fn evaluate_variable_declaration_statement(&mut self, s: &BoundVariableDeclarationStatement) {
+        let value = self.evaluate_expression(&s.initializer);
+        self.variables.insert(s.variable.clone(), value.clone());
+        self.last_value = value;
     }
 }
 

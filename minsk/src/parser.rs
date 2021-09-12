@@ -11,6 +11,7 @@ use crate::syntax::expressions::UnaryExpressionSyntax;
 use crate::syntax::statements::BlockStatementSyntax;
 use crate::syntax::statements::ExpressionStatementSyntax;
 use crate::syntax::statements::StatementSyntax;
+use crate::syntax::statements::VariableDeclarationStatementSyntax;
 use crate::syntax::CompilationUnitSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
@@ -110,6 +111,9 @@ impl Parser {
             SyntaxKind::OpenBraceToken => {
                 Box::new(StatementSyntax::Block(self.parse_block_statement()))
             }
+            SyntaxKind::LetKeyword | SyntaxKind::VarKeyword => Box::new(
+                StatementSyntax::VariableDeclaration(self.parse_variable_declaration_statement()),
+            ),
             _ => Box::new(StatementSyntax::Expression(
                 self.parse_expression_statement(),
             )),
@@ -241,6 +245,24 @@ impl Parser {
         Box::new(ExpressionSyntax::Name(NameExpressionSyntax {
             identifier_token,
         }))
+    }
+
+    fn parse_variable_declaration_statement(&mut self) -> VariableDeclarationStatementSyntax {
+        let expected = if self.current().kind == SyntaxKind::LetKeyword {
+            SyntaxKind::LetKeyword
+        } else {
+            SyntaxKind::VarKeyword
+        };
+        let keyword = self.match_token(expected);
+        let identifier = self.match_token(SyntaxKind::IdentifierToken);
+        let equals_token = self.match_token(SyntaxKind::EqualsToken);
+        let initializer = self.parse_expression();
+        VariableDeclarationStatementSyntax {
+            keyword,
+            identifier,
+            equals_token,
+            initializer: *initializer,
+        }
     }
 }
 

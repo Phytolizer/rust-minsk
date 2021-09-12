@@ -1,16 +1,19 @@
 use crate::diagnostic::DiagnosticBag;
 use crate::lexer::Lexer;
 use crate::plumbing::Object;
-use crate::syntax::AssignmentExpressionSyntax;
-use crate::syntax::BinaryExpressionSyntax;
+use crate::syntax::expressions::AssignmentExpressionSyntax;
+use crate::syntax::expressions::BinaryExpressionSyntax;
+use crate::syntax::expressions::ExpressionSyntax;
+use crate::syntax::expressions::LiteralExpressionSyntax;
+use crate::syntax::expressions::NameExpressionSyntax;
+use crate::syntax::expressions::ParenthesizedExpressionSyntax;
+use crate::syntax::expressions::UnaryExpressionSyntax;
+use crate::syntax::statements::BlockStatementSyntax;
+use crate::syntax::statements::ExpressionStatementSyntax;
+use crate::syntax::statements::StatementSyntax;
 use crate::syntax::CompilationUnitSyntax;
-use crate::syntax::ExpressionSyntax;
-use crate::syntax::LiteralExpressionSyntax;
-use crate::syntax::NameExpressionSyntax;
-use crate::syntax::ParenthesizedExpressionSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
-use crate::syntax::UnaryExpressionSyntax;
 use crate::text::SourceText;
 
 pub(crate) struct Parser {
@@ -94,11 +97,47 @@ impl Parser {
     }
 
     pub(crate) fn parse_compilation_unit(&mut self) -> CompilationUnitSyntax {
-        let expression = self.parse_expression();
+        let expression = self.parse_statement();
         let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
         CompilationUnitSyntax {
-            expression: *expression,
+            statement: *expression,
             end_of_file_token,
+        }
+    }
+
+    fn parse_statement(&mut self) -> Box<StatementSyntax> {
+        match self.current().kind {
+            SyntaxKind::OpenBraceToken => {
+                Box::new(StatementSyntax::Block(self.parse_block_statement()))
+            }
+            _ => Box::new(StatementSyntax::Expression(
+                self.parse_expression_statement(),
+            )),
+        }
+    }
+
+    fn parse_block_statement(&mut self) -> BlockStatementSyntax {
+        let mut statements = Vec::new();
+
+        let open_brace_token = self.match_token(SyntaxKind::OpenBraceToken);
+        while ![SyntaxKind::EndOfFileToken, SyntaxKind::CloseBraceToken]
+            .contains(&self.current().kind)
+        {
+            let statement = self.parse_statement();
+            statements.push(*statement);
+        }
+        let close_brace_token = self.match_token(SyntaxKind::CloseBraceToken);
+        BlockStatementSyntax {
+            open_brace_token,
+            statements,
+            close_brace_token,
+        }
+    }
+
+    fn parse_expression_statement(&mut self) -> ExpressionStatementSyntax {
+        let expression = self.parse_expression();
+        ExpressionStatementSyntax {
+            expression: *expression,
         }
     }
 
@@ -209,6 +248,8 @@ impl Parser {
 mod tests {
     use std::vec;
 
+    use crate::syntax::expressions::ExpressionSyntax;
+    use crate::syntax::statements::StatementSyntax;
     use crate::syntax::SyntaxKind;
     use crate::syntax::SyntaxNodeRef;
     use crate::syntax::SyntaxTree;
@@ -285,6 +326,14 @@ mod tests {
         }
     }
 
+    fn parse_expression(input: &str) -> ExpressionSyntax {
+        let statement = SyntaxTree::parse(input).root.statement;
+        match statement {
+            StatementSyntax::Expression(s) => s.expression,
+            _ => panic!("not an expression: {:?}", statement),
+        }
+    }
+
     #[test]
     fn binary_expression_honors_precedence() {
         for (op1, op2) in get_binary_operator_pairs() {
@@ -293,7 +342,7 @@ mod tests {
             let op1_text = op1.get_text().unwrap();
             let op2_text = op2.get_text().unwrap();
             let text = format!("a {} b {} c", op1_text, op2_text);
-            let expression = SyntaxTree::parse(&text).root.expression;
+            let expression = parse_expression(&text);
 
             let mut e = AssertingIterator::new(SyntaxNodeRef::Expression(expression.create_ref()));
             e.assert_node(SyntaxKind::BinaryExpression);
@@ -324,7 +373,7 @@ mod tests {
             let unary_text = unary.get_text().unwrap();
             let binary_text = binary.get_text().unwrap();
             let text = format!("{} a {} b", unary_text, binary_text);
-            let expression = SyntaxTree::parse(&text).root.expression;
+            let expression = parse_expression(&text);
 
             let mut e = AssertingIterator::new(SyntaxNodeRef::Expression(expression.create_ref()));
             if unary_precedence >= binary_precedence {

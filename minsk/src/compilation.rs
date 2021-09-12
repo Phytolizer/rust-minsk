@@ -63,7 +63,7 @@ impl Compilation {
             return Err(diagnostics);
         }
         let mut evaluator = Evaluator::new(variables);
-        let value = evaluator.evaluate(&global_scope.expression);
+        let value = evaluator.evaluate(&global_scope.statement);
         Ok(value)
     }
 

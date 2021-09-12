@@ -90,6 +90,14 @@ impl<'s> Lexer<'s> {
                 self.position += 1;
                 self.kind = SyntaxKind::CloseParenthesisToken;
             }
+            '{' => {
+                self.position += 1;
+                self.kind = SyntaxKind::OpenBraceToken;
+            }
+            '}' => {
+                self.position += 1;
+                self.kind = SyntaxKind::CloseBraceToken;
+            }
             '!' => {
                 self.position += 1;
                 self.kind = SyntaxKind::BangToken;

@@ -4,6 +4,7 @@ use crate::binding::BoundBinaryExpression;
 use crate::binding::BoundBinaryOperatorKind;
 use crate::binding::BoundExpression;
 use crate::binding::BoundLiteralExpression;
+use crate::binding::BoundStatement;
 use crate::binding::BoundUnaryExpression;
 use crate::binding::BoundUnaryOperatorKind;
 use crate::plumbing::Object;
@@ -11,25 +12,22 @@ use crate::text::VariableSymbol;
 
 pub(crate) struct Evaluator<'v> {
     variables: &'v mut HashMap<VariableSymbol, Object>,
+    last_value: Object,
 }
 
 impl<'v> Evaluator<'v> {
-    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
-        Self { variables }
+    pub(crate) fn evaluate(&mut self, root: &BoundStatement) -> Object {
+        self.evaluate_statement(root);
+        self.last_value.clone()
     }
 
-    pub(crate) fn evaluate(&mut self, root: &BoundExpression) -> Object {
-        self.evaluate_expression(root)
-    }
-
-    fn evaluate_expression(&mut self, expr: &BoundExpression) -> Object {
-        match expr {
-            BoundExpression::Binary(e) => self.evaluate_binary_expression(e),
-            BoundExpression::Unary(e) => self.evaluate_unary_expression(e),
-            BoundExpression::Literal(e) => self.evaluate_literal_expression(e),
-            BoundExpression::Variable(e) => self.evaluate_variable_expression(e),
-            BoundExpression::Assignment(e) => self.evaluate_assignment_expression(e),
-        }
+    fn evaluate_assignment_expression(
+        &mut self,
+        e: &crate::binding::BoundAssignmentExpression,
+    ) -> Object {
+        let value = self.evaluate_expression(&e.expression);
+        self.variables.insert(e.variable.clone(), value.clone());
+        value
     }
 
     fn evaluate_binary_expression(&mut self, e: &BoundBinaryExpression) -> Object {
@@ -59,6 +57,27 @@ impl<'v> Evaluator<'v> {
         }
     }
 
+    fn evaluate_expression(&mut self, expr: &BoundExpression) -> Object {
+        match expr {
+            BoundExpression::Binary(e) => self.evaluate_binary_expression(e),
+            BoundExpression::Unary(e) => self.evaluate_unary_expression(e),
+            BoundExpression::Literal(e) => self.evaluate_literal_expression(e),
+            BoundExpression::Variable(e) => self.evaluate_variable_expression(e),
+            BoundExpression::Assignment(e) => self.evaluate_assignment_expression(e),
+        }
+    }
+
+    fn evaluate_literal_expression(&self, e: &BoundLiteralExpression) -> Object {
+        e.value.clone()
+    }
+
+    fn evaluate_statement(&mut self, root: &BoundStatement) {
+        match root {
+            BoundStatement::Block(s) => self.evaluate_block_statement(s),
+            BoundStatement::Expression(s) => self.evaluate_expression_statement(s),
+        }
+    }
+
     fn evaluate_unary_expression(&mut self, e: &BoundUnaryExpression) -> Object {
         let operand = self.evaluate_expression(&e.operand);
         match e.operator.kind {
@@ -68,22 +87,26 @@ impl<'v> Evaluator<'v> {
         }
     }
 
-    fn evaluate_literal_expression(&self, e: &BoundLiteralExpression) -> Object {
-        e.value.clone()
-    }
-
     fn evaluate_variable_expression(&self, e: &crate::binding::BoundVariableExpression) -> Object {
         let value = self.variables.get(&e.variable).unwrap();
         value.clone()
     }
 
-    fn evaluate_assignment_expression(
-        &mut self,
-        e: &crate::binding::BoundAssignmentExpression,
-    ) -> Object {
-        let value = self.evaluate_expression(&e.expression);
-        self.variables.insert(e.variable.clone(), value.clone());
-        value
+    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
+        Self {
+            variables,
+            last_value: Object::Null,
+        }
+    }
+
+    fn evaluate_block_statement(&mut self, s: &crate::binding::BoundBlockStatement) {
+        for statement in s.statements.iter() {
+            self.evaluate_statement(statement);
+        }
+    }
+
+    fn evaluate_expression_statement(&mut self, s: &crate::binding::BoundExpressionStatement) {
+        self.last_value = self.evaluate_expression(&s.expression);
     }
 }
 

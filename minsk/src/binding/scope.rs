@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::diagnostic::Diagnostic;
 use crate::text::VariableSymbol;
 
-use super::BoundExpression;
+use super::BoundStatement;
 
 pub(crate) struct BoundScope {
     pub(crate) parent: Option<Box<BoundScope>>,
@@ -49,5 +49,5 @@ pub(crate) struct BoundGlobalScope {
     pub(crate) previous: Option<Box<BoundGlobalScope>>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) variables: Vec<VariableSymbol>,
-    pub(crate) expression: BoundExpression,
+    pub(crate) statement: BoundStatement,
 }

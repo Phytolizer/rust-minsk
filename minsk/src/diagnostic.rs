@@ -90,7 +90,7 @@ impl DiagnosticBag {
         self.report(span, message);
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.diagnostics.is_empty()
     }
 

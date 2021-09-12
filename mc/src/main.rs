@@ -1,3 +1,7 @@
+use crossterm::cursor::MoveTo;
+use crossterm::terminal::Clear;
+use crossterm::terminal::ClearType;
+use crossterm::ExecutableCommand;
 use minsk::compilation::Compilation;
 use minsk::plumbing::Object;
 use minsk::syntax::SyntaxNodeRef;
@@ -12,35 +16,60 @@ use std::io::Write;
 
 fn main() {
     let mut reader = BufReader::new(stdin());
-    let mut line = String::new();
+    let mut input = String::new();
     let mut show_tree = false;
     let mut variables = HashMap::<VariableSymbol, Object>::new();
+    let mut text_builder = String::new();
     loop {
         print!("\x1b[0;32m");
-        print!("👉 ");
+        if text_builder.is_empty() {
+            print!("👉 ");
+        } else {
+            print!("👆 ");
+        }
         print!("\x1b[0m");
         stdout().flush().unwrap();
-        line.clear();
-        if reader.read_line(&mut line).unwrap() == 0 {
+        input.clear();
+        if reader.read_line(&mut input).unwrap() == 0 {
             println!();
             break;
         }
-        line = line.chars().take(line.len() - 1).collect();
+        input = input.trim_end().to_string();
 
-        if line == "#showTree" {
-            show_tree = !show_tree;
-            println!(
-                "{}",
-                if show_tree {
-                    "🌳\x1b[0;32m✔\x1b[0m Showing parse trees."
-                } else {
-                    "🌳\x1b[0;31m🗙\x1b[0m Not showing parse trees."
+        if text_builder.is_empty() {
+            match input.as_str() {
+                "" => break,
+                "#showTree" => {
+                    show_tree = !show_tree;
+                    println!(
+                        "{}",
+                        if show_tree {
+                            "🌳\x1b[0;32m✔\x1b[0m Showing parse trees."
+                        } else {
+                            "🌳\x1b[0;31m🗙\x1b[0m Not showing parse trees."
+                        }
+                    );
+                    continue;
                 }
-            );
-            continue;
+                "#cls" => {
+                    stdout()
+                        .execute(Clear(ClearType::All))
+                        .unwrap()
+                        .execute(MoveTo(0, 0))
+                        .unwrap();
+                    continue;
+                }
+                _ => {}
+            }
         }
 
-        let syntax_tree = SyntaxTree::parse(&line);
+        text_builder.push_str(&input);
+        text_builder.push('\n');
+        let syntax_tree = SyntaxTree::parse(&text_builder);
+
+        if !input.is_empty() && !syntax_tree.diagnostics.is_empty() {
+            continue;
+        }
 
         if show_tree {
             print!("\x1b[2;37m");
@@ -56,17 +85,19 @@ fn main() {
             Err(diagnostics) => {
                 println!();
                 for diagnostic in diagnostics {
-                    let chars = line.chars().collect::<Vec<_>>();
+                    let chars = text_builder.chars().collect::<Vec<_>>();
                     let line_index = source_text.get_line_index(diagnostic.span.start);
+                    let line = &source_text.lines[line_index];
                     let line_number = line_index + 1;
-                    let char_offset = diagnostic.span.start - source_text.lines[line_index].start + 1;
-                    let prefix = chars[source_text.lines[line_index].start..diagnostic.span.start]
+                    let char_offset =
+                        diagnostic.span.start - line.start + 1;
+                    let prefix = chars[line.start..diagnostic.span.start]
                         .iter()
                         .collect::<String>();
                     let error = chars[diagnostic.span.start..diagnostic.span.end()]
                         .iter()
                         .collect::<String>();
-                    let suffix = chars[diagnostic.span.end()..source_text.lines[line_index].end()]
+                    let suffix = chars[diagnostic.span.end()..line.end()]
                         .iter()
                         .collect::<String>();
 
@@ -90,5 +121,6 @@ fn main() {
             }
         }
         print!("\x1b[0m");
+        text_builder.clear();
     }
 }

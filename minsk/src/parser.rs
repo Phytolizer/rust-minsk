@@ -198,7 +198,6 @@ mod tests {
     use std::vec;
 
     use crate::syntax::SyntaxKind;
-    use crate::syntax::SyntaxNode;
     use crate::syntax::SyntaxNodeRef;
     use crate::syntax::SyntaxTree;
     use strum::IntoEnumIterator;

@@ -220,9 +220,11 @@ impl<'a> SyntaxNodeRef<'a> {
     pub fn pretty_print(&self) {
         self.pretty_print_node(&mut stdout(), String::new(), true, true);
     }
+
     pub fn pretty_print_to<W: std::io::Write>(&self, writer: &mut W) {
         self.pretty_print_node(writer, String::new(), true, false);
     }
+
     fn pretty_print_node<W: std::io::Write>(
         &self,
         writer: &mut W,

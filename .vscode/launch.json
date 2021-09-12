@@ -9,6 +9,19 @@
             "sourceLanguages": [
                 "rust"
             ]
+        },
+        {
+            "name": "Test",
+            "type":"lldb",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "-p",
+                    "minsk"
+                ]
+            },
+            "request": "launch",
         }
     ]
 }

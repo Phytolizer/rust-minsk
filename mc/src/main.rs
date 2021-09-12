@@ -25,7 +25,7 @@ fn main() {
     let mut show_tree = false;
     let mut variables = HashMap::<VariableSymbol, Object>::new();
     let mut text_builder = String::new();
-    let mut compilation: Option<Compilation> = None;
+    let mut previous: Option<Compilation> = None;
     loop {
         stdout().execute(SetForegroundColor(Color::Green)).unwrap();
         if text_builder.is_empty() {
@@ -80,6 +80,10 @@ fn main() {
                         .unwrap();
                     continue;
                 }
+                "#reset" => {
+                    previous = None;
+                    continue;
+                }
                 _ => {}
             }
         }
@@ -98,12 +102,12 @@ fn main() {
         }
 
         let source_text = syntax_tree.source_text.clone();
-        compilation = if let Some(previous) = compilation {
-            Some(previous.continue_with(syntax_tree))
+        let mut compilation = if let Some(previous) = previous.clone() {
+            previous.continue_with(syntax_tree)
         } else {
-            Some(Compilation::new(syntax_tree))
+            Compilation::new(syntax_tree)
         };
-        let result = compilation.as_mut().unwrap().evaluate(&mut variables);
+        let result = compilation.evaluate(&mut variables);
 
         match result {
             Err(diagnostics) => {
@@ -143,6 +147,7 @@ fn main() {
                     .execute(SetForegroundColor(Color::Magenta))
                     .unwrap();
                 println!("{}", value);
+                previous = Some(compilation);
             }
         }
         stdout().execute(ResetColor).unwrap();

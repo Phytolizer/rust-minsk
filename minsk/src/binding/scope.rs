@@ -44,6 +44,7 @@ impl BoundScope {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundGlobalScope {
     pub(crate) previous: Option<Box<BoundGlobalScope>>,
     pub(crate) diagnostics: Vec<Diagnostic>,

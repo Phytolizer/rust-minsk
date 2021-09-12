@@ -10,6 +10,7 @@ use crate::text::VariableSymbol;
 
 pub type EvaluationResult = Result<Object, DiagnosticBag>;
 
+#[derive(Clone)]
 pub struct Compilation {
     previous: Option<Box<Compilation>>,
     pub syntax: SyntaxTree,

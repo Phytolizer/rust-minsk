@@ -36,6 +36,7 @@ impl BoundNode {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) enum BoundExpression {
     Binary(BoundBinaryExpression),
     Unary(BoundUnaryExpression),
@@ -78,6 +79,7 @@ pub(crate) enum BoundBinaryOperatorKind {
     Inequality,
 }
 
+#[derive(Debug, Clone)]
 pub struct BoundBinaryExpression {
     pub(crate) left: Box<BoundExpression>,
     pub(crate) operator: &'static BoundBinaryOperator,
@@ -91,19 +93,23 @@ pub(crate) enum BoundUnaryOperatorKind {
     LogicalNegation,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundUnaryExpression {
     pub(crate) operator: &'static BoundUnaryOperator,
     pub(crate) operand: Box<BoundExpression>,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundLiteralExpression {
     pub(crate) value: Object,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundVariableExpression {
     pub(crate) variable: VariableSymbol,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundAssignmentExpression {
     pub(crate) variable: VariableSymbol,
     pub(crate) expression: Box<BoundExpression>,

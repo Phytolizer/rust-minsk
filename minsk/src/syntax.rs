@@ -129,6 +129,7 @@ impl Default for SyntaxToken {
     }
 }
 
+#[derive(Clone)]
 pub struct SyntaxTree {
     pub source_text: SourceText,
     pub root: CompilationUnitSyntax,
@@ -291,7 +292,7 @@ impl Display for SyntaxNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExpressionSyntax {
     Binary(BinaryExpressionSyntax),
     Unary(UnaryExpressionSyntax),
@@ -363,45 +364,45 @@ impl ExpressionSyntax {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpressionSyntax {
     pub(crate) left: Box<ExpressionSyntax>,
     pub(crate) operator_token: SyntaxToken,
     pub(crate) right: Box<ExpressionSyntax>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpressionSyntax {
     pub(crate) operator_token: SyntaxToken,
     pub(crate) operand: Box<ExpressionSyntax>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LiteralExpressionSyntax {
     pub(crate) literal_token: SyntaxToken,
     pub(crate) value: Object,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParenthesizedExpressionSyntax {
     pub(crate) open_parenthesis_token: SyntaxToken,
     pub(crate) expression: Box<ExpressionSyntax>,
     pub(crate) close_parenthesis_token: SyntaxToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NameExpressionSyntax {
     pub(crate) identifier_token: SyntaxToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AssignmentExpressionSyntax {
     pub(crate) identifier_token: SyntaxToken,
     pub(crate) equals_token: SyntaxToken,
     pub(crate) expression: Box<ExpressionSyntax>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompilationUnitSyntax {
     pub expression: ExpressionSyntax,
     pub end_of_file_token: SyntaxToken,

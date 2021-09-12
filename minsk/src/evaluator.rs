@@ -123,7 +123,7 @@ mod tests {
             ("true != true", Object::Boolean(false)),
             ("1 != 2", Object::Boolean(true)),
             ("1 != 1", Object::Boolean(false)),
-            ("(a = 10) * 10", Object::Number(100)),
+            ("(a = 10) * a", Object::Number(100)),
         ]
     }
 
@@ -135,7 +135,12 @@ mod tests {
             let mut variables = HashMap::new();
             let actual_result = compilation.evaluate(&mut variables);
 
-            assert_eq!(actual_result, Ok(value));
+            if actual_result != Ok(value.clone()) {
+                panic!(
+                    "input: {}, expected result: {:?}, actual result: {:?}",
+                    text, value, actual_result
+                );
+            }
         }
     }
 }

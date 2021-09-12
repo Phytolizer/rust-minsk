@@ -12,6 +12,7 @@ use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
 use minsk::text::VariableSymbol;
 use std::collections::HashMap;
+use std::collections::LinkedList;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufRead;
@@ -24,6 +25,7 @@ fn main() {
     let mut show_tree = false;
     let mut variables = HashMap::<VariableSymbol, Object>::new();
     let mut text_builder = String::new();
+    let mut compilation: Option<Compilation> = None;
     loop {
         stdout().execute(SetForegroundColor(Color::Green)).unwrap();
         if text_builder.is_empty() {
@@ -91,13 +93,17 @@ fn main() {
         }
 
         if show_tree {
-            let tree_node = SyntaxNodeRef::Expression(syntax_tree.root.create_ref());
+            let tree_node = SyntaxNodeRef::CompilationUnit(syntax_tree.root.create_ref());
             tree_node.pretty_print();
         }
 
         let source_text = syntax_tree.source_text.clone();
-        let compilation = Compilation::new(syntax_tree);
-        let result = compilation.evaluate(&mut variables);
+        compilation = if let Some(previous) = compilation {
+            Some(previous.continue_with(syntax_tree))
+        } else {
+            Some(Compilation::new(syntax_tree))
+        };
+        let result = compilation.as_mut().unwrap().evaluate(&mut variables);
 
         match result {
             Err(diagnostics) => {

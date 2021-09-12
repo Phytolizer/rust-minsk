@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::io::stdout;
 
+use crate::diagnostic::Diagnostic;
 use crate::diagnostic::DiagnosticBag;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -42,6 +43,8 @@ pub(crate) enum SyntaxKind {
     ParenthesizedExpression,
     NameExpression,
     AssignmentExpression,
+
+    CompilationUnit,
 }
 
 impl SyntaxKind {
@@ -128,19 +131,28 @@ impl Default for SyntaxToken {
 
 pub struct SyntaxTree {
     pub source_text: SourceText,
-    pub root: Box<ExpressionSyntax>,
-    pub end_of_file_token: SyntaxToken,
-    pub diagnostics: DiagnosticBag,
+    pub root: CompilationUnitSyntax,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl SyntaxTree {
+    fn new(text: SourceText) -> Self {
+        let mut parser = Parser::new(text.clone());
+        let root = parser.parse_compilation_unit();
+
+        Self {
+            source_text: text,
+            root,
+            diagnostics: parser.diagnostics.into_iter().collect(),
+        }
+    }
+
     pub fn parse(input: &str) -> Self {
         Self::parse_text(SourceText::from(input.chars().collect()))
     }
 
     pub fn parse_text(text: SourceText) -> Self {
-        let parser = Parser::new(text);
-        parser.parse()
+        Self::new(text)
     }
 
     pub fn parse_tokens(input: &str) -> Vec<SyntaxToken> {
@@ -165,12 +177,14 @@ impl SyntaxTree {
 #[derive(Debug)]
 pub enum SyntaxNode {
     Expression(ExpressionSyntax),
+    CompilationUnit(CompilationUnitSyntax),
     Token(SyntaxToken),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum SyntaxNodeRef<'a> {
     Expression(ExpressionSyntaxRef<'a>),
+    CompilationUnit(CompilationUnitSyntaxRef<'a>),
     Token(&'a SyntaxToken),
 }
 
@@ -178,6 +192,7 @@ impl<'a> SyntaxNodeRef<'a> {
     pub(crate) fn kind(&self) -> SyntaxKind {
         match self {
             SyntaxNodeRef::Expression(e) => e.kind(),
+            SyntaxNodeRef::CompilationUnit(c) => c.kind(),
             SyntaxNodeRef::Token(t) => t.kind,
         }
     }
@@ -185,6 +200,7 @@ impl<'a> SyntaxNodeRef<'a> {
     pub(crate) fn children(self) -> Vec<SyntaxNodeRef<'a>> {
         match self {
             Self::Expression(e) => e.children(),
+            Self::CompilationUnit(c) => c.children(),
             Self::Token(_) => vec![],
         }
     }
@@ -261,6 +277,7 @@ impl SyntaxNode {
     pub fn create_ref(&self) -> SyntaxNodeRef {
         match self {
             SyntaxNode::Expression(e) => SyntaxNodeRef::Expression(e.create_ref()),
+            SyntaxNode::CompilationUnit(c) => SyntaxNodeRef::CompilationUnit(c.create_ref()),
             SyntaxNode::Token(t) => SyntaxNodeRef::Token(t),
         }
     }
@@ -382,6 +399,40 @@ pub struct AssignmentExpressionSyntax {
     pub(crate) identifier_token: SyntaxToken,
     pub(crate) equals_token: SyntaxToken,
     pub(crate) expression: Box<ExpressionSyntax>,
+}
+
+#[derive(Debug)]
+pub struct CompilationUnitSyntax {
+    pub expression: ExpressionSyntax,
+    pub end_of_file_token: SyntaxToken,
+}
+
+impl CompilationUnitSyntax {
+    pub fn create_ref(&self) -> CompilationUnitSyntaxRef {
+        CompilationUnitSyntaxRef {
+            expression: self.expression.create_ref(),
+            end_of_file_token: &self.end_of_file_token,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CompilationUnitSyntaxRef<'a> {
+    pub expression: ExpressionSyntaxRef<'a>,
+    pub end_of_file_token: &'a SyntaxToken,
+}
+
+impl<'a> CompilationUnitSyntaxRef<'a> {
+    pub(crate) fn kind(&self) -> SyntaxKind {
+        SyntaxKind::CompilationUnit
+    }
+
+    pub fn children(&self) -> Vec<SyntaxNodeRef<'a>> {
+        vec![
+            SyntaxNodeRef::Expression(self.expression),
+            SyntaxNodeRef::Token(self.end_of_file_token),
+        ]
+    }
 }
 
 #[cfg(test)]

@@ -131,7 +131,7 @@ mod tests {
     fn computes_correct_value() {
         for (text, value) in get_value_tests() {
             let syntax_tree = SyntaxTree::parse(text);
-            let compilation = Compilation::new(syntax_tree);
+            let mut compilation = Compilation::new(syntax_tree);
             let mut variables = HashMap::new();
             let actual_result = compilation.evaluate(&mut variables);
 

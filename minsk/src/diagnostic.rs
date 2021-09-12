@@ -5,7 +5,7 @@ use crate::plumbing::ObjectKind;
 use crate::syntax::SyntaxKind;
 use crate::text::TextSpan;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Diagnostic {
     pub span: TextSpan,
     pub message: String,
@@ -94,8 +94,13 @@ impl DiagnosticBag {
         self.diagnostics.is_empty()
     }
 
-    pub(crate) fn report_undefined_name(&mut self, span: TextSpan, name: String) {
+    pub(crate) fn report_undefined_name(&mut self, span: TextSpan, name: &str) {
         let message = format!("Undefined name '{}'.", name);
+        self.report(span, message);
+    }
+
+    pub(crate) fn report_variable_already_declared(&mut self, span: TextSpan, name: &str) {
+        let message = format!("Variable '{}' is already declared.", name);
         self.report(span, message);
     }
 }

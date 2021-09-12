@@ -1,17 +1,20 @@
-use std::collections::HashMap;
-
 use crate::diagnostic::DiagnosticBag;
 use crate::plumbing::Object;
 use crate::plumbing::ObjectKind;
+use crate::syntax::AssignmentExpressionSyntax;
 use crate::syntax::BinaryExpressionSyntax;
+use crate::syntax::CompilationUnitSyntaxRef;
 use crate::syntax::ExpressionSyntaxRef;
 use crate::syntax::UnaryExpressionSyntax;
 use crate::text::VariableSymbol;
 
 use self::operators::BoundBinaryOperator;
 use self::operators::BoundUnaryOperator;
+use self::scope::BoundGlobalScope;
+use self::scope::BoundScope;
 
 mod operators;
+pub(crate) mod scope;
 
 pub(crate) enum BoundNodeKind {
     BinaryExpression,
@@ -106,12 +109,12 @@ pub(crate) struct BoundAssignmentExpression {
     pub(crate) expression: Box<BoundExpression>,
 }
 
-pub(crate) struct Binder<'v> {
+pub(crate) struct Binder {
     pub(crate) diagnostics: DiagnosticBag,
-    variables: &'v mut HashMap<VariableSymbol, Object>,
+    scope: BoundScope,
 }
 
-impl<'v> Binder<'v> {
+impl Binder {
     pub(crate) fn bind_expression(
         &mut self,
         expression: ExpressionSyntaxRef,
@@ -182,10 +185,10 @@ impl<'v> Binder<'v> {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
+    pub(crate) fn new(scope: BoundScope) -> Self {
         Self {
             diagnostics: DiagnosticBag::new(),
-            variables,
+            scope,
         }
     }
 
@@ -195,7 +198,7 @@ impl<'v> Binder<'v> {
     ) -> Box<BoundExpression> {
         let name = e.identifier_token.text.clone();
 
-        let variable = self.variables.keys().find(|k| k.name == name);
+        let variable = self.scope.try_lookup(&name);
 
         match variable {
             Some(v) => Box::new(BoundExpression::Variable(BoundVariableExpression {
@@ -203,7 +206,7 @@ impl<'v> Binder<'v> {
             })),
             None => {
                 self.diagnostics
-                    .report_undefined_name(e.identifier_token.span(), name);
+                    .report_undefined_name(e.identifier_token.span(), &name);
                 Box::new(BoundExpression::Literal(BoundLiteralExpression {
                     value: Object::Number(0),
                 }))
@@ -213,34 +216,64 @@ impl<'v> Binder<'v> {
 
     fn bind_assignment_expression(
         &mut self,
-        e: &crate::syntax::AssignmentExpressionSyntax,
+        e: &AssignmentExpressionSyntax,
     ) -> Box<BoundExpression> {
         let name = e.identifier_token.text.clone();
         let expression = self.bind_expression(e.expression.create_ref());
 
-        let existing_variable = self.variables.keys().find(|k| k.name == name);
-        if let Some(existing_variable) = existing_variable.cloned() {
-            self.variables.remove(&existing_variable);
-        }
         let variable = VariableSymbol {
-            name,
+            name: name.clone(),
             kind: expression.get_type(),
         };
-        let default_value = match expression.get_type() {
-            ObjectKind::Number => Object::Number(0),
-            ObjectKind::Boolean => Object::Boolean(false),
-            ObjectKind::Null => Object::Null,
-        };
 
-        if default_value == Object::Null {
-            panic!("Unsupported variable type {:?}", expression.get_type());
+        if !self.scope.try_declare(variable.clone()) {
+            self.diagnostics
+                .report_variable_already_declared(e.identifier_token.span(), &name);
         }
-
-        self.variables.insert(variable.clone(), default_value);
 
         Box::new(BoundExpression::Assignment(BoundAssignmentExpression {
             variable,
             expression,
         }))
+    }
+
+    pub(crate) fn bind_global_scope(
+        previous: Option<&BoundGlobalScope>,
+        syntax: CompilationUnitSyntaxRef,
+    ) -> BoundGlobalScope {
+        let parent_scope = Self::create_parent_scopes(previous);
+        let mut binder = Binder::new(parent_scope);
+        let expression = binder.bind_expression(syntax.expression);
+        let variables = binder
+            .scope
+            .get_declared_variables()
+            .into_iter()
+            .cloned()
+            .collect();
+        let diagnostics = binder.diagnostics.into_iter().collect::<Vec<_>>();
+        BoundGlobalScope {
+            previous: None,
+            diagnostics,
+            variables,
+            expression: *expression,
+        }
+    }
+
+    fn create_parent_scopes(mut previous: Option<&BoundGlobalScope>) -> BoundScope {
+        let mut stack = Vec::new();
+        while let Some(p) = previous {
+            stack.push(p);
+            previous = p.previous.as_ref().map(|p| p.as_ref());
+        }
+
+        let mut parent = BoundScope::new(None);
+        while let Some(global) = stack.pop() {
+            let mut scope = BoundScope::new(Some(Box::new(parent)));
+            for v in &global.variables {
+                scope.try_declare(v.clone());
+            }
+            parent = scope;
+        }
+        parent
     }
 }

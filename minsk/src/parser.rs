@@ -3,20 +3,20 @@ use crate::lexer::Lexer;
 use crate::plumbing::Object;
 use crate::syntax::AssignmentExpressionSyntax;
 use crate::syntax::BinaryExpressionSyntax;
+use crate::syntax::CompilationUnitSyntax;
 use crate::syntax::ExpressionSyntax;
 use crate::syntax::LiteralExpressionSyntax;
 use crate::syntax::NameExpressionSyntax;
 use crate::syntax::ParenthesizedExpressionSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
-use crate::syntax::SyntaxTree;
 use crate::syntax::UnaryExpressionSyntax;
 use crate::text::SourceText;
 
 pub(crate) struct Parser {
     tokens: Vec<SyntaxToken>,
     position: usize,
-    diagnostics: DiagnosticBag,
+    pub(crate) diagnostics: DiagnosticBag,
     text: SourceText,
 }
 
@@ -93,14 +93,12 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse(mut self) -> SyntaxTree {
-        let root = self.parse_expression();
+    pub(crate) fn parse_compilation_unit(&mut self) -> CompilationUnitSyntax {
+        let expression = self.parse_expression();
         let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
-        SyntaxTree {
-            root,
+        CompilationUnitSyntax {
+            expression: *expression,
             end_of_file_token,
-            diagnostics: self.diagnostics,
-            source_text: self.text,
         }
     }
 
@@ -295,7 +293,7 @@ mod tests {
             let op1_text = op1.get_text().unwrap();
             let op2_text = op2.get_text().unwrap();
             let text = format!("a {} b {} c", op1_text, op2_text);
-            let expression = SyntaxTree::parse(&text).root;
+            let expression = SyntaxTree::parse(&text).root.expression;
 
             let mut e = AssertingIterator::new(SyntaxNodeRef::Expression(expression.create_ref()));
             e.assert_node(SyntaxKind::BinaryExpression);
@@ -326,7 +324,7 @@ mod tests {
             let unary_text = unary.get_text().unwrap();
             let binary_text = binary.get_text().unwrap();
             let text = format!("{} a {} b", unary_text, binary_text);
-            let expression = SyntaxTree::parse(&text).root;
+            let expression = SyntaxTree::parse(&text).root.expression;
 
             let mut e = AssertingIterator::new(SyntaxNodeRef::Expression(expression.create_ref()));
             if unary_precedence >= binary_precedence {

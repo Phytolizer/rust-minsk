@@ -3,8 +3,8 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::plumbing::Object;
 use crate::text::TextSpan;
-#[derive(Debug, Clone, Copy, PartialEq)]
 
+#[derive(Debug, Clone, Copy, PartialEq, strum_macros::EnumIter)]
 pub(crate) enum SyntaxKind {
     NumberToken,
     WhitespaceToken,
@@ -51,6 +51,26 @@ impl SyntaxKind {
         match self {
             SyntaxKind::PlusToken | SyntaxKind::MinusToken | SyntaxKind::BangToken => 6,
             _ => 0,
+        }
+    }
+
+    pub(crate) fn get_text(&self) -> Option<&'static str> {
+        match self {
+            SyntaxKind::PlusToken => Some("+"),
+            SyntaxKind::MinusToken => Some("-"),
+            SyntaxKind::StarToken => Some("*"),
+            SyntaxKind::SlashToken => Some("/"),
+            SyntaxKind::BangToken => Some("!"),
+            SyntaxKind::EqualsToken => Some("="),
+            SyntaxKind::AmpersandAmpersandToken => Some("&&"),
+            SyntaxKind::PipePipeToken => Some("||"),
+            SyntaxKind::EqualsEqualsToken => Some("=="),
+            SyntaxKind::BangEqualsToken => Some("!="),
+            SyntaxKind::OpenParenthesisToken => Some("("),
+            SyntaxKind::CloseParenthesisToken => Some(")"),
+            SyntaxKind::FalseKeyword => Some("false"),
+            SyntaxKind::TrueKeyword => Some("true"),
+            _ => None,
         }
     }
 }
@@ -130,6 +150,7 @@ pub enum SyntaxNode {
     Token(SyntaxToken),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum SyntaxNodeRef<'a> {
     Expression(ExpressionSyntaxRef<'a>),
     Token(&'a SyntaxToken),
@@ -200,6 +221,7 @@ pub enum ExpressionSyntax {
     Assignment(AssignmentExpressionSyntax),
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum ExpressionSyntaxRef<'a> {
     Binary(&'a BinaryExpressionSyntax),
     Unary(&'a UnaryExpressionSyntax),
@@ -297,4 +319,22 @@ pub struct AssignmentExpressionSyntax {
     pub(crate) identifier_token: SyntaxToken,
     pub(crate) equals_token: SyntaxToken,
     pub(crate) expression: Box<ExpressionSyntax>,
+}
+
+#[cfg(test)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use super::SyntaxKind;
+    use super::SyntaxTree;
+
+    #[test]
+    fn get_text_round_trips() {
+        for (kind, text) in SyntaxKind::iter().filter_map(|k| k.get_text().map(|t| (k, t))) {
+            let tokens = SyntaxTree::parse_tokens(text);
+            assert_eq!(1, tokens.len());
+            assert_eq!(kind, tokens[0].kind);
+            assert_eq!(text, tokens[0].text);
+        }
+    }
 }

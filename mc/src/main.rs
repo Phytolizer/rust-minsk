@@ -45,7 +45,7 @@ fn main() {
         if show_tree {
             print!("\x1b[2;37m");
             let tree_node = SyntaxNodeRef::Expression(syntax_tree.root.create_ref());
-            tree_node.pretty_print(&mut stdout());
+            tree_node.pretty_print();
         }
 
         let compilation = Compilation::new(syntax_tree);

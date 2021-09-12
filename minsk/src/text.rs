@@ -14,6 +14,13 @@ impl TextSpan {
     pub fn end(&self) -> usize {
         self.start + self.length
     }
+
+    pub(crate) fn from_bounds(start: usize, end: usize) -> TextSpan {
+        TextSpan {
+            start,
+            length: end - start,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

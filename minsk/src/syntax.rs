@@ -1,8 +1,15 @@
+use std::io::stdout;
+
 use crate::diagnostic::DiagnosticBag;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::plumbing::Object;
 use crate::text::TextSpan;
+
+use crossterm::style::Color;
+use crossterm::style::ResetColor;
+use crossterm::style::SetForegroundColor;
+use crossterm::ExecutableCommand;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum_macros::EnumIter)]
 pub(crate) enum SyntaxKind {
@@ -170,15 +177,30 @@ impl<'a> SyntaxNodeRef<'a> {
             Self::Token(_) => vec![],
         }
     }
-    pub fn pretty_print<W: std::io::Write>(&self, writer: &mut W) {
-        self.pretty_print_node(writer, String::new(), true);
+
+    pub fn span(&self) -> TextSpan {
+        let children = self.children();
+        let first = children.first().unwrap().span();
+        let last = children.last().unwrap().span();
+        TextSpan::from_bounds(first.start, last.end())
+    }
+
+    pub fn pretty_print(&self) {
+        self.pretty_print_node(&mut stdout(), String::new(), true, true);
+    }
+    pub fn pretty_print_to<W: std::io::Write>(&self, writer: &mut W) {
+        self.pretty_print_node(writer, String::new(), true, false);
     }
     fn pretty_print_node<W: std::io::Write>(
         &self,
         writer: &mut W,
         mut indent: String,
         is_last: bool,
+        colors: bool,
     ) {
+        if colors {
+            writer.execute(SetForegroundColor(Color::DarkGrey)).unwrap();
+        }
         write!(writer, "{}", indent).unwrap();
         let marker = if is_last {
             "└───"
@@ -186,10 +208,29 @@ impl<'a> SyntaxNodeRef<'a> {
             "├───"
         };
         write!(writer, "{}", marker).unwrap();
+        if colors {
+            writer.execute(ResetColor).unwrap();
+        }
+        if colors {
+            if let Self::Token(_) = self {
+                writer.execute(SetForegroundColor(Color::Blue)).unwrap();
+            } else {
+                writer.execute(SetForegroundColor(Color::Cyan)).unwrap();
+            }
+        }
         write!(writer, "{:?}", self.kind()).unwrap();
+        if colors {
+            writer.execute(ResetColor).unwrap();
+        }
         if let Self::Token(t) = self {
             if t.value != Object::Null {
+                if colors {
+                    writer.execute(SetForegroundColor(Color::Magenta)).unwrap();
+                }
                 write!(writer, " {}", t.value).unwrap();
+                if colors {
+                    writer.execute(ResetColor).unwrap();
+                }
             }
         }
 
@@ -197,7 +238,10 @@ impl<'a> SyntaxNodeRef<'a> {
         writeln!(writer).unwrap();
         let children = self.children();
         for i in 0..children.len() {
-            children[i].pretty_print_node(writer, indent.clone(), i == children.len() - 1);
+            children[i].pretty_print_node(writer, indent.clone(), i == children.len() - 1, colors);
+        }
+        if colors {
+            writer.execute(ResetColor).unwrap();
         }
     }
 }

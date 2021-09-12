@@ -1,4 +1,5 @@
 use crate::diagnostic::DiagnosticBag;
+use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::plumbing::Object;
 use crate::text::TextSpan;
@@ -106,6 +107,20 @@ impl SyntaxTree {
     pub fn parse(input: &str) -> Self {
         let mut parser = Parser::new(input);
         parser.parse()
+    }
+
+    pub fn parse_tokens(input: &str) -> Vec<SyntaxToken> {
+        let mut lexer = Lexer::new(input);
+        let mut tokens = Vec::new();
+        loop {
+            let token = lexer.next_token();
+            if token.kind == SyntaxKind::EndOfFileToken {
+                break;
+            }
+
+            tokens.push(token);
+        }
+        tokens
     }
 }
 

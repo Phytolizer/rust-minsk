@@ -5,6 +5,7 @@ use crate::plumbing::ObjectKind;
 use crate::syntax::SyntaxKind;
 use crate::text::TextSpan;
 
+#[derive(Debug, PartialEq)]
 pub struct Diagnostic {
     pub span: TextSpan,
     pub message: String,
@@ -22,6 +23,7 @@ impl Display for Diagnostic {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct DiagnosticBag {
     pub diagnostics: Vec<Diagnostic>,
 }

@@ -86,3 +86,55 @@ impl<'v> Evaluator<'v> {
         value
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::compilation::Compilation;
+    use crate::plumbing::Object;
+    use crate::syntax::SyntaxTree;
+
+    fn get_value_tests() -> Vec<(&'static str, Object)> {
+        vec![
+            ("1", Object::Number(1)),
+            ("-1", Object::Number(-1)),
+            ("+1", Object::Number(1)),
+            ("1 + 2", Object::Number(3)),
+            ("1 - 2", Object::Number(-1)),
+            ("1 * 2", Object::Number(2)),
+            ("9 / 3", Object::Number(3)),
+            ("(10)", Object::Number(10)),
+            ("true", Object::Boolean(true)),
+            ("false", Object::Boolean(false)),
+            ("!true", Object::Boolean(false)),
+            ("!false", Object::Boolean(true)),
+            ("!!true", Object::Boolean(true)),
+            ("!!false", Object::Boolean(false)),
+            ("true && false", Object::Boolean(false)),
+            ("true && true", Object::Boolean(true)),
+            ("true || false", Object::Boolean(true)),
+            ("true || true", Object::Boolean(true)),
+            ("false || false", Object::Boolean(false)),
+            ("true == false", Object::Boolean(false)),
+            ("1 == 1", Object::Boolean(true)),
+            ("2 == 3", Object::Boolean(false)),
+            ("true != false", Object::Boolean(true)),
+            ("true != true", Object::Boolean(false)),
+            ("1 != 2", Object::Boolean(true)),
+            ("1 != 1", Object::Boolean(false)),
+        ]
+    }
+
+    #[test]
+    fn computes_correct_value() {
+        for (text, value) in get_value_tests() {
+            let syntax_tree = SyntaxTree::parse(text);
+            let compilation = Compilation::new(syntax_tree);
+            let mut variables = HashMap::new();
+            let actual_result = compilation.evaluate(&mut variables);
+
+            assert_eq!(actual_result, Ok(value));
+        }
+    }
+}

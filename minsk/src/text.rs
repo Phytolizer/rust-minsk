@@ -1,5 +1,6 @@
 use crate::plumbing::ObjectKind;
 
+#[derive(Debug, PartialEq)]
 pub struct TextSpan {
     pub start: usize,
     pub length: usize,

@@ -85,7 +85,7 @@ fn main() {
             Err(diagnostics) => {
                 println!();
                 for diagnostic in diagnostics {
-                    let chars = text_builder.chars().collect::<Vec<_>>();
+                    let chars = source_text.as_chars();
                     let line_index = source_text.get_line_index(diagnostic.span.start);
                     let line = &source_text.lines[line_index];
                     let line_number = line_index + 1;

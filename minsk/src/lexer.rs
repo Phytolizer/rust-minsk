@@ -158,7 +158,6 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::iter::FromIterator;
 
     use crate::syntax::SyntaxKind;
     use crate::syntax::SyntaxTree;
@@ -248,7 +247,8 @@ mod tests {
     fn tests_all_tokens() {
         let kinds = SyntaxKind::iter()
             .filter(|k| {
-                format!("{:?}", k).ends_with("Keyword") || format!("{:?}", k).ends_with("Token")
+                let str = format!("{:?}", k);
+                str.ends_with("Keyword") || str.ends_with("Token")
             })
             .collect::<Vec<_>>();
         let tested_token_kinds = get_tokens()

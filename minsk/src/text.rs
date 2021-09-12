@@ -161,3 +161,16 @@ impl TextLine {
         self.start + self.length
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SourceText;
+
+    #[test]
+    fn source_text_includes_last_line() {
+        for (text, expected_line_count) in [(".", 1), (".\r\n", 2), (".\r\n\r\n", 3)] {
+            let source_text = SourceText::from(text.chars().collect());
+            assert_eq!(expected_line_count, source_text.lines.len());
+        }
+    }
+}

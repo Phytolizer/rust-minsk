@@ -4,6 +4,7 @@ use crate::syntax::SyntaxKind;
 use super::BoundBinaryOperatorKind;
 use super::BoundUnaryOperatorKind;
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundBinaryOperator {
     syntax_kind: SyntaxKind,
     pub(crate) kind: BoundBinaryOperatorKind,
@@ -119,6 +120,7 @@ impl BoundBinaryOperator {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundUnaryOperator {
     syntax_kind: SyntaxKind,
     pub(crate) kind: BoundUnaryOperatorKind,

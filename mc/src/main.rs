@@ -1,4 +1,8 @@
 use crossterm::cursor::MoveTo;
+use crossterm::style::Color;
+use crossterm::style::Print;
+use crossterm::style::ResetColor;
+use crossterm::style::SetForegroundColor;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use crossterm::ExecutableCommand;
@@ -20,14 +24,15 @@ fn main() {
     let mut show_tree = false;
     let mut variables = HashMap::<VariableSymbol, Object>::new();
     let mut text_builder = String::new();
+    let mut previous: Option<Compilation> = None;
     loop {
-        print!("\x1b[0;32m");
+        stdout().execute(SetForegroundColor(Color::Green)).unwrap();
         if text_builder.is_empty() {
-            print!("👉 ");
+            print!("» ");
         } else {
-            print!("👆 ");
+            print!("· ");
         }
-        print!("\x1b[0m");
+        stdout().execute(ResetColor).unwrap();
         stdout().flush().unwrap();
         input.clear();
         if reader.read_line(&mut input).unwrap() == 0 {
@@ -41,14 +46,29 @@ fn main() {
                 "" => break,
                 "#showTree" => {
                     show_tree = !show_tree;
-                    println!(
-                        "{}",
-                        if show_tree {
-                            "🌳\x1b[0;32m✔\x1b[0m Showing parse trees."
-                        } else {
-                            "🌳\x1b[0;31m🗙\x1b[0m Not showing parse trees."
-                        }
-                    );
+                    print!("🌳");
+                    if show_tree {
+                        stdout()
+                            .execute(SetForegroundColor(Color::Green))
+                            .unwrap()
+                            .execute(Print("✔"))
+                            .unwrap()
+                            .execute(ResetColor)
+                            .unwrap()
+                            .execute(Print(" Showing parse trees."))
+                            .unwrap();
+                    } else {
+                        stdout()
+                            .execute(SetForegroundColor(Color::Red))
+                            .unwrap()
+                            .execute(Print("🗙"))
+                            .unwrap()
+                            .execute(ResetColor)
+                            .unwrap()
+                            .execute(Print(" Not showing parse trees."))
+                            .unwrap();
+                    }
+                    println!();
                     continue;
                 }
                 "#cls" => {
@@ -57,6 +77,10 @@ fn main() {
                         .unwrap()
                         .execute(MoveTo(0, 0))
                         .unwrap();
+                    continue;
+                }
+                "#reset" => {
+                    previous = None;
                     continue;
                 }
                 _ => {}
@@ -72,13 +96,16 @@ fn main() {
         }
 
         if show_tree {
-            print!("\x1b[2;37m");
-            let tree_node = SyntaxNodeRef::Expression(syntax_tree.root.create_ref());
+            let tree_node = SyntaxNodeRef::CompilationUnit(syntax_tree.root.create_ref());
             tree_node.pretty_print();
         }
 
         let source_text = syntax_tree.source_text.clone();
-        let compilation = Compilation::new(syntax_tree);
+        let mut compilation = if let Some(previous) = previous.clone() {
+            previous.continue_with(syntax_tree)
+        } else {
+            Compilation::new(syntax_tree)
+        };
         let result = compilation.evaluate(&mut variables);
 
         match result {
@@ -89,8 +116,7 @@ fn main() {
                     let line_index = source_text.get_line_index(diagnostic.span.start);
                     let line = &source_text.lines[line_index];
                     let line_number = line_index + 1;
-                    let char_offset =
-                        diagnostic.span.start - line.start + 1;
+                    let char_offset = diagnostic.span.start - line.start + 1;
                     let prefix = chars[line.start..diagnostic.span.start]
                         .iter()
                         .collect::<String>();
@@ -101,26 +127,29 @@ fn main() {
                         .iter()
                         .collect::<String>();
 
-                    print!("\x1b[0;31m");
+                    stdout().execute(SetForegroundColor(Color::Red)).unwrap();
                     print!("({}, {}): ", line_number, char_offset);
                     println!("{}", diagnostic);
 
-                    print!("\x1b[0m");
+                    stdout().execute(ResetColor).unwrap();
                     print!("\t{}", prefix);
-                    print!("\x1b[0;31m");
+                    stdout().execute(SetForegroundColor(Color::Red)).unwrap();
                     print!("{}", error);
-                    print!("\x1b[0m");
+                    stdout().execute(ResetColor).unwrap();
                     print!("{}", suffix);
                     println!();
                 }
                 println!();
             }
             Ok(value) => {
-                print!("\x1b[35m");
+                stdout()
+                    .execute(SetForegroundColor(Color::Magenta))
+                    .unwrap();
                 println!("{}", value);
+                previous = Some(compilation);
             }
         }
-        print!("\x1b[0m");
+        stdout().execute(ResetColor).unwrap();
         text_builder.clear();
     }
 }

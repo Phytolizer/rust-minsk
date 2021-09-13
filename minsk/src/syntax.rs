@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::io::stdout;
 
-use crate::diagnostic::DiagnosticBag;
+use crate::diagnostic::Diagnostic;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::plumbing::Object;
@@ -12,6 +12,14 @@ use crossterm::style::Color;
 use crossterm::style::ResetColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::ExecutableCommand;
+
+use self::expressions::ExpressionSyntax;
+use self::expressions::ExpressionSyntaxRef;
+use self::statements::StatementSyntax;
+use self::statements::StatementSyntaxRef;
+
+pub mod expressions;
+pub mod statements;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum_macros::EnumIter)]
 pub(crate) enum SyntaxKind {
@@ -30,11 +38,15 @@ pub(crate) enum SyntaxKind {
     EqualsToken,
     OpenParenthesisToken,
     CloseParenthesisToken,
+    OpenBraceToken,
+    CloseBraceToken,
     EndOfFileToken,
     BadToken,
 
-    TrueKeyword,
     FalseKeyword,
+    LetKeyword,
+    TrueKeyword,
+    VarKeyword,
 
     BinaryExpression,
     UnaryExpression,
@@ -42,6 +54,12 @@ pub(crate) enum SyntaxKind {
     ParenthesizedExpression,
     NameExpression,
     AssignmentExpression,
+
+    BlockStatement,
+    ExpressionStatement,
+    VariableDeclarationStatement,
+
+    CompilationUnit,
 }
 
 impl SyntaxKind {
@@ -77,8 +95,12 @@ impl SyntaxKind {
             SyntaxKind::BangEqualsToken => Some("!="),
             SyntaxKind::OpenParenthesisToken => Some("("),
             SyntaxKind::CloseParenthesisToken => Some(")"),
+            SyntaxKind::OpenBraceToken => Some("{"),
+            SyntaxKind::CloseBraceToken => Some("}"),
             SyntaxKind::FalseKeyword => Some("false"),
+            SyntaxKind::LetKeyword => Some("let"),
             SyntaxKind::TrueKeyword => Some("true"),
+            SyntaxKind::VarKeyword => Some("var"),
             _ => None,
         }
     }
@@ -86,8 +108,10 @@ impl SyntaxKind {
 
 pub(crate) fn keyword_kind(text: &str) -> SyntaxKind {
     match text {
-        "true" => SyntaxKind::TrueKeyword,
         "false" => SyntaxKind::FalseKeyword,
+        "let" => SyntaxKind::LetKeyword,
+        "true" => SyntaxKind::TrueKeyword,
+        "var" => SyntaxKind::VarKeyword,
         _ => SyntaxKind::IdentifierToken,
     }
 }
@@ -126,21 +150,31 @@ impl Default for SyntaxToken {
     }
 }
 
+#[derive(Clone)]
 pub struct SyntaxTree {
     pub source_text: SourceText,
-    pub root: Box<ExpressionSyntax>,
-    pub end_of_file_token: SyntaxToken,
-    pub diagnostics: DiagnosticBag,
+    pub root: CompilationUnitSyntax,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl SyntaxTree {
+    fn new(text: SourceText) -> Self {
+        let mut parser = Parser::new(text.clone());
+        let root = parser.parse_compilation_unit();
+
+        Self {
+            source_text: text,
+            root,
+            diagnostics: parser.diagnostics.into_iter().collect(),
+        }
+    }
+
     pub fn parse(input: &str) -> Self {
         Self::parse_text(SourceText::from(input.chars().collect()))
     }
 
     pub fn parse_text(text: SourceText) -> Self {
-        let parser = Parser::new(text);
-        parser.parse()
+        Self::new(text)
     }
 
     pub fn parse_tokens(input: &str) -> Vec<SyntaxToken> {
@@ -165,12 +199,16 @@ impl SyntaxTree {
 #[derive(Debug)]
 pub enum SyntaxNode {
     Expression(ExpressionSyntax),
+    Statement(StatementSyntax),
+    CompilationUnit(CompilationUnitSyntax),
     Token(SyntaxToken),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum SyntaxNodeRef<'a> {
     Expression(ExpressionSyntaxRef<'a>),
+    Statement(StatementSyntaxRef<'a>),
+    CompilationUnit(CompilationUnitSyntaxRef<'a>),
     Token(&'a SyntaxToken),
 }
 
@@ -178,6 +216,8 @@ impl<'a> SyntaxNodeRef<'a> {
     pub(crate) fn kind(&self) -> SyntaxKind {
         match self {
             SyntaxNodeRef::Expression(e) => e.kind(),
+            &SyntaxNodeRef::Statement(s) => s.kind(),
+            SyntaxNodeRef::CompilationUnit(c) => c.kind(),
             SyntaxNodeRef::Token(t) => t.kind,
         }
     }
@@ -185,23 +225,32 @@ impl<'a> SyntaxNodeRef<'a> {
     pub(crate) fn children(self) -> Vec<SyntaxNodeRef<'a>> {
         match self {
             Self::Expression(e) => e.children(),
+            Self::Statement(s) => s.children(),
+            Self::CompilationUnit(c) => c.children(),
             Self::Token(_) => vec![],
         }
     }
 
     pub fn span(&self) -> TextSpan {
-        let children = self.children();
-        let first = children.first().unwrap().span();
-        let last = children.last().unwrap().span();
-        TextSpan::from_bounds(first.start, last.end())
+        match self {
+            Self::Token(t) => t.span(),
+            _ => {
+                let children = self.children();
+                let first = children.first().unwrap().span();
+                let last = children.last().unwrap().span();
+                TextSpan::from_bounds(first.start, last.end())
+            }
+        }
     }
 
     pub fn pretty_print(&self) {
         self.pretty_print_node(&mut stdout(), String::new(), true, true);
     }
+
     pub fn pretty_print_to<W: std::io::Write>(&self, writer: &mut W) {
         self.pretty_print_node(writer, String::new(), true, false);
     }
+
     fn pretty_print_node<W: std::io::Write>(
         &self,
         writer: &mut W,
@@ -261,6 +310,8 @@ impl SyntaxNode {
     pub fn create_ref(&self) -> SyntaxNodeRef {
         match self {
             SyntaxNode::Expression(e) => SyntaxNodeRef::Expression(e.create_ref()),
+            SyntaxNode::Statement(s) => SyntaxNodeRef::Statement(s.create_ref()),
+            SyntaxNode::CompilationUnit(c) => SyntaxNodeRef::CompilationUnit(c.create_ref()),
             SyntaxNode::Token(t) => SyntaxNodeRef::Token(t),
         }
     }
@@ -274,114 +325,38 @@ impl Display for SyntaxNode {
     }
 }
 
-#[derive(Debug)]
-pub enum ExpressionSyntax {
-    Binary(BinaryExpressionSyntax),
-    Unary(UnaryExpressionSyntax),
-    Literal(LiteralExpressionSyntax),
-    Parenthesized(ParenthesizedExpressionSyntax),
-    Name(NameExpressionSyntax),
-    Assignment(AssignmentExpressionSyntax),
+#[derive(Debug, Clone)]
+pub struct CompilationUnitSyntax {
+    pub statement: StatementSyntax,
+    pub end_of_file_token: SyntaxToken,
+}
+
+impl CompilationUnitSyntax {
+    pub fn create_ref(&self) -> CompilationUnitSyntaxRef {
+        CompilationUnitSyntaxRef {
+            statement: self.statement.create_ref(),
+            end_of_file_token: &self.end_of_file_token,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum ExpressionSyntaxRef<'a> {
-    Binary(&'a BinaryExpressionSyntax),
-    Unary(&'a UnaryExpressionSyntax),
-    Literal(&'a LiteralExpressionSyntax),
-    Parenthesized(&'a ParenthesizedExpressionSyntax),
-    Name(&'a NameExpressionSyntax),
-    Assignment(&'a AssignmentExpressionSyntax),
+pub struct CompilationUnitSyntaxRef<'a> {
+    pub statement: StatementSyntaxRef<'a>,
+    pub end_of_file_token: &'a SyntaxToken,
 }
 
-impl<'a> ExpressionSyntaxRef<'a> {
+impl<'a> CompilationUnitSyntaxRef<'a> {
     pub(crate) fn kind(&self) -> SyntaxKind {
-        match self {
-            ExpressionSyntaxRef::Binary(_) => SyntaxKind::BinaryExpression,
-            ExpressionSyntaxRef::Unary(_) => SyntaxKind::UnaryExpression,
-            ExpressionSyntaxRef::Literal(_) => SyntaxKind::LiteralExpression,
-            ExpressionSyntaxRef::Parenthesized(_) => SyntaxKind::ParenthesizedExpression,
-            ExpressionSyntaxRef::Name(_) => SyntaxKind::NameExpression,
-            ExpressionSyntaxRef::Assignment(_) => SyntaxKind::AssignmentExpression,
-        }
+        SyntaxKind::CompilationUnit
     }
 
-    fn children(self) -> Vec<SyntaxNodeRef<'a>> {
-        match self {
-            ExpressionSyntaxRef::Binary(e) => vec![
-                SyntaxNodeRef::Expression(e.left.create_ref()),
-                SyntaxNodeRef::Token(&e.operator_token),
-                SyntaxNodeRef::Expression(e.right.create_ref()),
-            ],
-            ExpressionSyntaxRef::Unary(e) => vec![
-                SyntaxNodeRef::Token(&e.operator_token),
-                SyntaxNodeRef::Expression(e.operand.create_ref()),
-            ],
-            ExpressionSyntaxRef::Literal(e) => vec![SyntaxNodeRef::Token(&e.literal_token)],
-            ExpressionSyntaxRef::Parenthesized(e) => vec![
-                SyntaxNodeRef::Token(&e.open_parenthesis_token),
-                SyntaxNodeRef::Expression(e.expression.create_ref()),
-                SyntaxNodeRef::Token(&e.close_parenthesis_token),
-            ],
-            ExpressionSyntaxRef::Name(e) => vec![SyntaxNodeRef::Token(&e.identifier_token)],
-            ExpressionSyntaxRef::Assignment(e) => vec![
-                SyntaxNodeRef::Token(&e.identifier_token),
-                SyntaxNodeRef::Token(&e.equals_token),
-                SyntaxNodeRef::Expression(e.expression.create_ref()),
-            ],
-        }
+    pub fn children(&self) -> Vec<SyntaxNodeRef<'a>> {
+        vec![
+            SyntaxNodeRef::Statement(self.statement),
+            SyntaxNodeRef::Token(self.end_of_file_token),
+        ]
     }
-}
-
-impl ExpressionSyntax {
-    pub fn create_ref(&self) -> ExpressionSyntaxRef {
-        match self {
-            ExpressionSyntax::Binary(e) => ExpressionSyntaxRef::Binary(e),
-            ExpressionSyntax::Unary(e) => ExpressionSyntaxRef::Unary(e),
-            ExpressionSyntax::Literal(e) => ExpressionSyntaxRef::Literal(e),
-            ExpressionSyntax::Parenthesized(e) => ExpressionSyntaxRef::Parenthesized(e),
-            ExpressionSyntax::Name(e) => ExpressionSyntaxRef::Name(e),
-            ExpressionSyntax::Assignment(e) => ExpressionSyntaxRef::Assignment(e),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct BinaryExpressionSyntax {
-    pub(crate) left: Box<ExpressionSyntax>,
-    pub(crate) operator_token: SyntaxToken,
-    pub(crate) right: Box<ExpressionSyntax>,
-}
-
-#[derive(Debug)]
-pub struct UnaryExpressionSyntax {
-    pub(crate) operator_token: SyntaxToken,
-    pub(crate) operand: Box<ExpressionSyntax>,
-}
-
-#[derive(Debug)]
-pub struct LiteralExpressionSyntax {
-    pub(crate) literal_token: SyntaxToken,
-    pub(crate) value: Object,
-}
-
-#[derive(Debug)]
-pub struct ParenthesizedExpressionSyntax {
-    pub(crate) open_parenthesis_token: SyntaxToken,
-    pub(crate) expression: Box<ExpressionSyntax>,
-    pub(crate) close_parenthesis_token: SyntaxToken,
-}
-
-#[derive(Debug)]
-pub struct NameExpressionSyntax {
-    pub(crate) identifier_token: SyntaxToken,
-}
-
-#[derive(Debug)]
-pub struct AssignmentExpressionSyntax {
-    pub(crate) identifier_token: SyntaxToken,
-    pub(crate) equals_token: SyntaxToken,
-    pub(crate) expression: Box<ExpressionSyntax>,
 }
 
 #[cfg(test)]

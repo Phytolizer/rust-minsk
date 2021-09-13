@@ -1,17 +1,29 @@
-use std::collections::HashMap;
-
 use crate::diagnostic::DiagnosticBag;
 use crate::plumbing::Object;
 use crate::plumbing::ObjectKind;
-use crate::syntax::BinaryExpressionSyntax;
-use crate::syntax::ExpressionSyntaxRef;
-use crate::syntax::UnaryExpressionSyntax;
+use crate::syntax::expressions::AssignmentExpressionSyntax;
+use crate::syntax::expressions::BinaryExpressionSyntax;
+use crate::syntax::expressions::ExpressionSyntaxRef;
+use crate::syntax::expressions::LiteralExpressionSyntax;
+use crate::syntax::expressions::NameExpressionSyntax;
+use crate::syntax::expressions::ParenthesizedExpressionSyntax;
+use crate::syntax::expressions::UnaryExpressionSyntax;
+use crate::syntax::statements::BlockStatementSyntax;
+use crate::syntax::statements::ExpressionStatementSyntax;
+use crate::syntax::statements::StatementSyntaxRef;
+use crate::syntax::statements::VariableDeclarationStatementSyntax;
+use crate::syntax::CompilationUnitSyntaxRef;
+use crate::syntax::SyntaxKind;
+use crate::syntax::SyntaxNodeRef;
 use crate::text::VariableSymbol;
 
 use self::operators::BoundBinaryOperator;
 use self::operators::BoundUnaryOperator;
+use self::scope::BoundGlobalScope;
+use self::scope::BoundScope;
 
 mod operators;
+pub(crate) mod scope;
 
 pub(crate) enum BoundNodeKind {
     BinaryExpression,
@@ -19,20 +31,60 @@ pub(crate) enum BoundNodeKind {
     LiteralExpression,
     VariableExpression,
     AssignmentExpression,
+
+    BlockStatement,
+    ExpressionStatement,
+    VariableDeclarationStatement,
 }
 
 pub(crate) enum BoundNode {
     Expression(BoundExpression),
+    Statement(BoundStatement),
 }
 
 impl BoundNode {
     pub(crate) fn kind(&self) -> BoundNodeKind {
         match self {
             BoundNode::Expression(e) => e.kind(),
+            BoundNode::Statement(s) => s.kind(),
         }
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum BoundStatement {
+    Block(BoundBlockStatement),
+    Expression(BoundExpressionStatement),
+    VariableDeclaration(BoundVariableDeclarationStatement),
+}
+
+impl BoundStatement {
+    fn kind(&self) -> BoundNodeKind {
+        match self {
+            BoundStatement::Block(_) => BoundNodeKind::BlockStatement,
+            BoundStatement::Expression(_) => BoundNodeKind::ExpressionStatement,
+            BoundStatement::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundBlockStatement {
+    pub(crate) statements: Vec<BoundStatement>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundExpressionStatement {
+    pub(crate) expression: BoundExpression,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundVariableDeclarationStatement {
+    pub(crate) variable: VariableSymbol,
+    pub(crate) initializer: BoundExpression,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) enum BoundExpression {
     Binary(BoundBinaryExpression),
     Unary(BoundUnaryExpression),
@@ -75,6 +127,7 @@ pub(crate) enum BoundBinaryOperatorKind {
     Inequality,
 }
 
+#[derive(Debug, Clone)]
 pub struct BoundBinaryExpression {
     pub(crate) left: Box<BoundExpression>,
     pub(crate) operator: &'static BoundBinaryOperator,
@@ -88,30 +141,44 @@ pub(crate) enum BoundUnaryOperatorKind {
     LogicalNegation,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundUnaryExpression {
     pub(crate) operator: &'static BoundUnaryOperator,
     pub(crate) operand: Box<BoundExpression>,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundLiteralExpression {
     pub(crate) value: Object,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundVariableExpression {
     pub(crate) variable: VariableSymbol,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct BoundAssignmentExpression {
     pub(crate) variable: VariableSymbol,
     pub(crate) expression: Box<BoundExpression>,
 }
 
-pub(crate) struct Binder<'v> {
+pub(crate) struct Binder {
     pub(crate) diagnostics: DiagnosticBag,
-    variables: &'v mut HashMap<VariableSymbol, Object>,
+    scope: BoundScope,
 }
 
-impl<'v> Binder<'v> {
+impl Binder {
+    pub(crate) fn bind_statement(&mut self, statement: StatementSyntaxRef) -> Box<BoundStatement> {
+        match statement {
+            StatementSyntaxRef::Block(s) => self.bind_block_statement(s),
+            StatementSyntaxRef::Expression(s) => self.bind_expression_statement(s),
+            StatementSyntaxRef::VariableDeclaration(s) => {
+                self.bind_variable_declaration_statement(s)
+            }
+        }
+    }
+
     pub(crate) fn bind_expression(
         &mut self,
         expression: ExpressionSyntaxRef,
@@ -166,10 +233,7 @@ impl<'v> Binder<'v> {
         }
     }
 
-    fn bind_literal_expression(
-        &self,
-        e: &crate::syntax::LiteralExpressionSyntax,
-    ) -> Box<BoundExpression> {
+    fn bind_literal_expression(&self, e: &LiteralExpressionSyntax) -> Box<BoundExpression> {
         Box::new(BoundExpression::Literal(BoundLiteralExpression {
             value: e.value.clone(),
         }))
@@ -177,25 +241,22 @@ impl<'v> Binder<'v> {
 
     fn bind_parenthesized_expression(
         &mut self,
-        e: &crate::syntax::ParenthesizedExpressionSyntax,
+        e: &ParenthesizedExpressionSyntax,
     ) -> Box<BoundExpression> {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
+    pub(crate) fn new(scope: BoundScope) -> Self {
         Self {
             diagnostics: DiagnosticBag::new(),
-            variables,
+            scope,
         }
     }
 
-    fn bind_name_expression(
-        &mut self,
-        e: &crate::syntax::NameExpressionSyntax,
-    ) -> Box<BoundExpression> {
+    fn bind_name_expression(&mut self, e: &NameExpressionSyntax) -> Box<BoundExpression> {
         let name = e.identifier_token.text.clone();
 
-        let variable = self.variables.keys().find(|k| k.name == name);
+        let variable = self.scope.try_lookup(&name);
 
         match variable {
             Some(v) => Box::new(BoundExpression::Variable(BoundVariableExpression {
@@ -203,7 +264,7 @@ impl<'v> Binder<'v> {
             })),
             None => {
                 self.diagnostics
-                    .report_undefined_name(e.identifier_token.span(), name);
+                    .report_undefined_name(e.identifier_token.span(), &name);
                 Box::new(BoundExpression::Literal(BoundLiteralExpression {
                     value: Object::Number(0),
                 }))
@@ -213,34 +274,126 @@ impl<'v> Binder<'v> {
 
     fn bind_assignment_expression(
         &mut self,
-        e: &crate::syntax::AssignmentExpressionSyntax,
+        e: &AssignmentExpressionSyntax,
     ) -> Box<BoundExpression> {
         let name = e.identifier_token.text.clone();
         let expression = self.bind_expression(e.expression.create_ref());
 
-        let existing_variable = self.variables.keys().find(|k| k.name == name);
-        if let Some(existing_variable) = existing_variable.cloned() {
-            self.variables.remove(&existing_variable);
-        }
-        let variable = VariableSymbol {
-            name,
-            kind: expression.get_type(),
-        };
-        let default_value = match expression.get_type() {
-            ObjectKind::Number => Object::Number(0),
-            ObjectKind::Boolean => Object::Boolean(false),
-            ObjectKind::Null => Object::Null,
+        let variable = if let Some(variable) = self.scope.try_lookup(&name) {
+            variable.clone()
+        } else {
+            self.diagnostics
+                .report_undefined_name(e.identifier_token.span(), &name);
+            return expression;
         };
 
-        if default_value == Object::Null {
-            panic!("Unsupported variable type {:?}", expression.get_type());
+        if variable.is_read_only {
+            self.diagnostics
+                .report_cannot_assign(e.equals_token.span(), &name);
         }
 
-        self.variables.insert(variable.clone(), default_value);
+        if expression.get_type() != variable.kind {
+            self.diagnostics.report_cannot_convert(
+                SyntaxNodeRef::Expression(e.expression.create_ref()).span(),
+                expression.get_type(),
+                variable.kind,
+            );
+            return expression;
+        }
 
         Box::new(BoundExpression::Assignment(BoundAssignmentExpression {
             variable,
             expression,
         }))
+    }
+
+    pub(crate) fn bind_global_scope(
+        previous: Option<&BoundGlobalScope>,
+        syntax: CompilationUnitSyntaxRef,
+    ) -> BoundGlobalScope {
+        let parent_scope = Self::create_parent_scopes(previous);
+        let mut binder = Binder::new(parent_scope);
+        let statement = binder.bind_statement(syntax.statement);
+        let variables = binder
+            .scope
+            .get_declared_variables()
+            .into_iter()
+            .cloned()
+            .collect();
+        let diagnostics = binder.diagnostics.into_iter().collect::<Vec<_>>();
+        BoundGlobalScope {
+            previous: None,
+            diagnostics,
+            variables,
+            statement: *statement,
+        }
+    }
+
+    fn create_parent_scopes(mut previous: Option<&BoundGlobalScope>) -> BoundScope {
+        let mut stack = Vec::new();
+        while let Some(p) = previous {
+            stack.push(p);
+            previous = p.previous.as_ref().map(|p| p.as_ref());
+        }
+
+        let mut parent = BoundScope::new(None);
+        while let Some(global) = stack.pop() {
+            let mut scope = BoundScope::new(Some(Box::new(parent)));
+            for v in &global.variables {
+                scope.try_declare(v.clone());
+            }
+            parent = scope;
+        }
+        parent
+    }
+
+    fn bind_block_statement(&mut self, s: &BlockStatementSyntax) -> Box<BoundStatement> {
+        let mut statements = Vec::new();
+
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, &mut self.scope);
+        self.scope = BoundScope::new(Some(Box::new(scope)));
+
+        for statement_syntax in &s.statements {
+            let statement = self.bind_statement(statement_syntax.create_ref());
+            statements.push(*statement);
+        }
+
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, self.scope.parent.as_mut().unwrap());
+        self.scope = scope;
+
+        Box::new(BoundStatement::Block(BoundBlockStatement { statements }))
+    }
+
+    fn bind_expression_statement(&mut self, s: &ExpressionStatementSyntax) -> Box<BoundStatement> {
+        let expression = self.bind_expression(s.expression.create_ref());
+        Box::new(BoundStatement::Expression(BoundExpressionStatement {
+            expression: *expression,
+        }))
+    }
+
+    fn bind_variable_declaration_statement(
+        &mut self,
+        s: &VariableDeclarationStatementSyntax,
+    ) -> Box<BoundStatement> {
+        let name = s.identifier.text.clone();
+        let initializer = self.bind_expression(s.initializer.create_ref());
+        let is_read_only = s.keyword.kind == SyntaxKind::LetKeyword;
+        let variable = VariableSymbol {
+            name: name.clone(),
+            is_read_only,
+            kind: initializer.get_type(),
+        };
+        if !self.scope.try_declare(variable.clone()) {
+            self.diagnostics
+                .report_variable_already_declared(s.identifier.span(), &name);
+        }
+        Box::new(BoundStatement::VariableDeclaration(
+            BoundVariableDeclarationStatement {
+                variable,
+                initializer: *initializer,
+            },
+        ))
     }
 }

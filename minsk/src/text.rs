@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 use crate::plumbing::ObjectKind;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TextSpan {
     pub start: usize,
     pub length: usize,
@@ -29,6 +29,7 @@ impl TextSpan {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VariableSymbol {
     pub name: String,
+    pub is_read_only: bool,
     pub kind: ObjectKind,
 }
 
@@ -159,5 +160,18 @@ impl TextLine {
 
     pub fn end(&self) -> usize {
         self.start + self.length
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SourceText;
+
+    #[test]
+    fn source_text_includes_last_line() {
+        for (text, expected_line_count) in [(".", 1), (".\r\n", 2), (".\r\n\r\n", 3)] {
+            let source_text = SourceText::from(text.chars().collect());
+            assert_eq!(expected_line_count, source_text.lines.len());
+        }
     }
 }

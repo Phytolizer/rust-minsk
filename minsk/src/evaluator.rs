@@ -57,6 +57,16 @@ impl<'v> Evaluator<'v> {
             }
             BoundBinaryOperatorKind::Equality => Object::Boolean(left == right),
             BoundBinaryOperatorKind::Inequality => Object::Boolean(left != right),
+            BoundBinaryOperatorKind::Less => Object::Boolean(left.as_number() < right.as_number()),
+            BoundBinaryOperatorKind::LessOrEquals => {
+                Object::Boolean(left.as_number() <= right.as_number())
+            }
+            BoundBinaryOperatorKind::Greater => {
+                Object::Boolean(left.as_number() > right.as_number())
+            }
+            BoundBinaryOperatorKind::GreaterOrEquals => {
+                Object::Boolean(left.as_number() >= right.as_number())
+            }
         }
     }
 
@@ -272,6 +282,16 @@ mod tests {
             ("true != true", Object::Boolean(false)),
             ("1 != 2", Object::Boolean(true)),
             ("1 != 1", Object::Boolean(false)),
+            ("3 < 4", Object::Boolean(true)),
+            ("5 < 4", Object::Boolean(false)),
+            ("4 <= 4", Object::Boolean(true)),
+            ("4 <= 5", Object::Boolean(true)),
+            ("5 <= 4", Object::Boolean(false)),
+            ("4 > 3", Object::Boolean(true)),
+            ("4 > 5", Object::Boolean(false)),
+            ("4 >= 4", Object::Boolean(true)),
+            ("5 >= 4", Object::Boolean(true)),
+            ("4 >= 5", Object::Boolean(false)),
             ("{ var a = 0 (a = 10) * a }", Object::Number(100)),
         ]
     }

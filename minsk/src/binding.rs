@@ -125,6 +125,10 @@ pub(crate) enum BoundBinaryOperatorKind {
     LogicalOr,
     Equality,
     Inequality,
+    Less,
+    LessOrEquals,
+    Greater,
+    GreaterOrEquals,
 }
 
 #[derive(Debug, Clone)]

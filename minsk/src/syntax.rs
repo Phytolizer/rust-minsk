@@ -35,6 +35,10 @@ pub(crate) enum SyntaxKind {
     PipePipeToken,
     EqualsEqualsToken,
     BangEqualsToken,
+    LessToken,
+    GreaterToken,
+    LessOrEqualsToken,
+    GreaterOrEqualsToken,
     EqualsToken,
     OpenParenthesisToken,
     CloseParenthesisToken,
@@ -67,7 +71,12 @@ impl SyntaxKind {
         match self {
             SyntaxKind::StarToken | SyntaxKind::SlashToken => 5,
             SyntaxKind::PlusToken | SyntaxKind::MinusToken => 4,
-            SyntaxKind::EqualsEqualsToken | SyntaxKind::BangEqualsToken => 3,
+            SyntaxKind::EqualsEqualsToken
+            | SyntaxKind::BangEqualsToken
+            | SyntaxKind::LessToken
+            | SyntaxKind::GreaterToken
+            | SyntaxKind::LessOrEqualsToken
+            | SyntaxKind::GreaterOrEqualsToken => 3,
             SyntaxKind::AmpersandAmpersandToken => 2,
             SyntaxKind::PipePipeToken => 1,
             _ => 0,
@@ -93,6 +102,10 @@ impl SyntaxKind {
             SyntaxKind::PipePipeToken => Some("||"),
             SyntaxKind::EqualsEqualsToken => Some("=="),
             SyntaxKind::BangEqualsToken => Some("!="),
+            SyntaxKind::LessToken => Some("<"),
+            SyntaxKind::GreaterToken => Some(">"),
+            SyntaxKind::LessOrEqualsToken => Some("<="),
+            SyntaxKind::GreaterOrEqualsToken => Some(">="),
             SyntaxKind::OpenParenthesisToken => Some("("),
             SyntaxKind::CloseParenthesisToken => Some(")"),
             SyntaxKind::OpenBraceToken => Some("{"),

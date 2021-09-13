@@ -62,6 +62,22 @@ impl<'s> Lexer<'s> {
                 self.position += 2;
                 self.kind = SyntaxKind::BangEqualsToken;
             }
+            '<' if self.lookahead() == '=' => {
+                self.position += 2;
+                self.kind = SyntaxKind::LessOrEqualsToken;
+            }
+            '>' if self.lookahead() == '=' => {
+                self.position += 2;
+                self.kind = SyntaxKind::GreaterOrEqualsToken;
+            }
+            '<' => {
+                self.position += 1;
+                self.kind = SyntaxKind::LessToken;
+            }
+            '>' => {
+                self.position += 1;
+                self.kind = SyntaxKind::GreaterToken;
+            }
             '+' => {
                 self.position += 1;
                 self.kind = SyntaxKind::PlusToken;
@@ -234,6 +250,10 @@ mod tests {
             (SyntaxKind::EqualsToken, SyntaxKind::EqualsToken | SyntaxKind::EqualsEqualsToken) => {
                 true
             }
+            (
+                SyntaxKind::LessToken | SyntaxKind::GreaterToken,
+                SyntaxKind::EqualsToken | SyntaxKind::EqualsEqualsToken,
+            ) => true,
             _ => false,
         }
     }

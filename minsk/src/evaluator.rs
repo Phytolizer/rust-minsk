@@ -125,10 +125,124 @@ impl<'v> Evaluator<'v> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::iter::once;
 
     use crate::compilation::Compilation;
     use crate::plumbing::Object;
     use crate::syntax::SyntaxTree;
+    use crate::text::TextSpan;
+
+    struct AnnotatedText {
+        text: String,
+        spans: Vec<TextSpan>,
+    }
+
+    impl AnnotatedText {
+        fn parse(text: &str) -> Self {
+            let text = Self::unindent(text);
+
+            let mut text_builder = Vec::new();
+            let mut spans_builder = Vec::new();
+            let mut start_stack = Vec::new();
+            let mut position = 0;
+
+            for c in text {
+                match c {
+                    '[' => {
+                        start_stack.push(position);
+                    }
+                    ']' => {
+                        assert!(!start_stack.is_empty());
+                        let start = start_stack.pop().unwrap();
+                        let end = position;
+                        spans_builder.push(TextSpan::from_bounds(start, end));
+                    }
+                    _ => {
+                        position += 1;
+                        text_builder.push(c);
+                    }
+                }
+            }
+
+            assert!(start_stack.is_empty());
+
+            Self {
+                text: text_builder.into_iter().collect(),
+                spans: spans_builder,
+            }
+        }
+
+        fn unindent(text: &str) -> Vec<char> {
+            let mut lines = Vec::new();
+            for line in text.lines() {
+                lines.push(line.to_string());
+            }
+            let mut min_indentation = std::usize::MAX;
+            for line in &lines {
+                let indentation = line.len() - line.trim_start().len();
+                if !line.trim().is_empty() && indentation < min_indentation {
+                    min_indentation = indentation;
+                }
+            }
+
+            lines = lines
+                .iter()
+                .map(|line| {
+                    if line.trim().is_empty() { "" } else { line }
+                        .chars()
+                        .skip(min_indentation)
+                        .collect()
+                })
+                .collect::<Vec<_>>();
+            while lines.first().map(|line| line.is_empty()).unwrap_or(false) {
+                lines.remove(0);
+            }
+            while lines.last().map(|line| line.is_empty()).unwrap_or(false) {
+                lines.pop();
+            }
+            lines
+                .into_iter()
+                .map(|line| {
+                    line.chars()
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                        .chain(once('\n'))
+                })
+                .flatten()
+                .collect()
+        }
+
+        fn unindent_lines(text: &str) -> Vec<String> {
+            let mut lines = Vec::new();
+            for line in text.lines() {
+                lines.push(line.to_string());
+            }
+            let mut min_indentation = std::usize::MAX;
+            for line in &lines {
+                let indentation = line.len() - line.trim_start().len();
+                if !line.trim().is_empty() && indentation < min_indentation {
+                    min_indentation = indentation;
+                }
+            }
+
+            lines = lines
+                .iter()
+                .map(|line| {
+                    if line.trim().is_empty() { "" } else { line }
+                        .chars()
+                        .skip(min_indentation)
+                        .collect()
+                })
+                .collect::<Vec<_>>();
+            while lines.first().map(|line| line.is_empty()).unwrap_or(false) {
+                lines.remove(0);
+            }
+            while lines.last().map(|line| line.is_empty()).unwrap_or(false) {
+                lines.pop();
+            }
+            lines
+        }
+    }
 
     fn get_value_tests() -> Vec<(&'static str, Object)> {
         vec![
@@ -177,5 +291,116 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn assert_diagnostics(text: &str, diagnostic_text: &str) {
+        let annotated_text = AnnotatedText::parse(text);
+        let syntax_tree = SyntaxTree::parse(&annotated_text.text);
+        let mut compilation = Compilation::new(syntax_tree);
+        let mut variables = HashMap::new();
+        let result = compilation.evaluate(&mut variables);
+        let diagnostics = AnnotatedText::unindent_lines(diagnostic_text);
+        if let Ok(value) = result {
+            panic!("not an error: {:?}", value);
+        }
+        assert_eq!(annotated_text.spans.len(), diagnostics.len());
+        assert_eq!(diagnostics.len(), result.as_ref().unwrap_err().len());
+
+        for ((diagnostic, expected_span), actual_diagnostic) in diagnostics
+            .iter()
+            .zip(annotated_text.spans.iter())
+            .zip(result.unwrap_err().into_iter())
+        {
+            let expected_message = diagnostic;
+            let actual_message = &actual_diagnostic.message;
+            assert_eq!(expected_message, actual_message);
+
+            let actual_span = &actual_diagnostic.span;
+            assert_eq!(expected_span, actual_span);
+        }
+    }
+
+    #[test]
+    fn variable_declaration_reports_redeclaration() {
+        let text = "
+            {
+                var x = 10
+                var y = 100
+                {
+                    var x = 10
+                }
+                var [x] = 5
+            }
+        ";
+
+        let diagnostics = "
+            Variable 'x' is already declared.
+        ";
+
+        assert_diagnostics(text, diagnostics);
+    }
+
+    #[test]
+    fn name_expression_reports_undefined() {
+        let text = "[a]";
+        let diagnostics = "
+            Undefined name 'a'.
+        ";
+        assert_diagnostics(text, diagnostics);
+    }
+
+    #[test]
+    fn assignment_expression_reports_undefined() {
+        let text = "[x] = 10";
+        let diagnostics = "
+            Undefined name 'x'.
+        ";
+        assert_diagnostics(text, diagnostics);
+    }
+
+    #[test]
+    fn assignment_expression_reports_cannot_assign() {
+        let text = "
+            {
+                let x = 10
+                x [=] 0
+            }
+        ";
+        let diagnostics = "
+            Variable 'x' is read-only and cannot be assigned to.
+        ";
+        assert_diagnostics(text, diagnostics);
+    }
+
+    #[test]
+    fn assignment_expression_reports_cannot_convert() {
+        let text = "
+            {
+                var x = 10
+                x = [true]
+            }
+        ";
+        let diagnostics = "
+            Cannot convert Boolean to Number.
+        ";
+        assert_diagnostics(text, diagnostics);
+    }
+
+    #[test]
+    fn unary_expression_reports_undefined() {
+        let text = "[+]true";
+        let diagnostics = "
+            Unary operator '+' is not defined for type Boolean.
+        ";
+        assert_diagnostics(text, diagnostics);
+    }
+
+    #[test]
+    fn binary_expression_reports_undefined() {
+        let text = "10 [*] false";
+        let diagnostics = "
+            Binary operator '*' is not defined for types Number and Boolean.
+        ";
+        assert_diagnostics(text, diagnostics);
     }
 }

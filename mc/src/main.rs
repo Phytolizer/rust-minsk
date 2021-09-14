@@ -153,7 +153,7 @@ fn main() {
                         .collect::<String>();
 
                     stdout()
-                        .execute(SetAttribute(Attribute::Reset))
+                        .execute(SetAttribute(Attribute::NormalIntensity))
                         .unwrap()
                         .execute(SetForegroundColor(Color::Red))
                         .unwrap();

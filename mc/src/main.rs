@@ -1,7 +1,10 @@
 use crossterm::cursor::MoveTo;
+use crossterm::style::Attribute;
 use crossterm::style::Color;
 use crossterm::style::Print;
 use crossterm::style::ResetColor;
+use crossterm::style::SetAttribute;
+use crossterm::style::SetAttributes;
 use crossterm::style::SetForegroundColor;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
@@ -120,7 +123,12 @@ fn main() {
         match result {
             Err(diagnostics) => {
                 let insult = insults[insult_index];
-                println!("\x1b[1;33m{}", insult);
+                stdout()
+                    .execute(SetAttribute(Attribute::Bold))
+                    .unwrap()
+                    .execute(SetForegroundColor(Color::Green))
+                    .unwrap();
+                println!("{}", insult);
                 println!("~~~");
                 insult_index += 1;
                 if insult_index == insults.len() {
@@ -144,7 +152,11 @@ fn main() {
                         .iter()
                         .collect::<String>();
 
-                    stdout().execute(SetForegroundColor(Color::Red)).unwrap();
+                    stdout()
+                        .execute(SetAttribute(Attribute::Reset))
+                        .unwrap()
+                        .execute(SetForegroundColor(Color::Red))
+                        .unwrap();
                     print!("({}, {}): ", line_number, char_offset);
                     println!("{}", diagnostic);
 

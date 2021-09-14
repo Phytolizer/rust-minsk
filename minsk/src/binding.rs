@@ -293,10 +293,10 @@ impl Binder {
         self.bind_expression(e.expression.create_ref())
     }
 
-    pub(crate) fn new(scope: BoundScope) -> Self {
+    pub(crate) fn new(scope: Option<Box<BoundScope>>) -> Self {
         Self {
             diagnostics: DiagnosticBag::new(),
-            scope,
+            scope: BoundScope::new(scope),
         }
     }
 
@@ -376,20 +376,20 @@ impl Binder {
         }
     }
 
-    fn create_parent_scopes(mut previous: Option<&BoundGlobalScope>) -> BoundScope {
+    fn create_parent_scopes(mut previous: Option<&BoundGlobalScope>) -> Option<Box<BoundScope>> {
         let mut stack = Vec::new();
         while let Some(p) = previous {
             stack.push(p);
             previous = p.previous.as_ref().map(|p| p.as_ref());
         }
 
-        let mut parent = BoundScope::new(None);
+        let mut parent = None;
         while let Some(global) = stack.pop() {
-            let mut scope = BoundScope::new(Some(Box::new(parent)));
+            let mut scope = BoundScope::new(parent);
             for v in &global.variables {
                 scope.try_declare(v.clone());
             }
-            parent = scope;
+            parent = Some(Box::new(scope));
         }
         parent
     }

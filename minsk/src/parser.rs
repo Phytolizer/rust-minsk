@@ -10,6 +10,7 @@ use crate::syntax::expressions::ParenthesizedExpressionSyntax;
 use crate::syntax::expressions::UnaryExpressionSyntax;
 use crate::syntax::statements::BlockStatementSyntax;
 use crate::syntax::statements::ExpressionStatementSyntax;
+use crate::syntax::statements::ForStatementSyntax;
 use crate::syntax::statements::IfStatementSyntax;
 use crate::syntax::statements::StatementSyntax;
 use crate::syntax::statements::VariableDeclarationStatementSyntax;
@@ -28,6 +29,32 @@ pub(crate) struct Parser {
 }
 
 impl Parser {
+    fn current(&self) -> &SyntaxToken {
+        self.peek(0)
+    }
+
+    fn current_mut(&mut self) -> &mut SyntaxToken {
+        self.peek_mut(0)
+    }
+
+    fn match_token(&mut self, kind: SyntaxKind) -> SyntaxToken {
+        if self.current().kind == kind {
+            self.next_token()
+        } else {
+            self.diagnostics.report_unexpected_token(
+                self.current().span(),
+                self.current().kind,
+                kind,
+            );
+            SyntaxToken {
+                kind,
+                position: self.current().position,
+                text: String::new(),
+                value: Object::Null,
+            }
+        }
+    }
+
     pub(crate) fn new(text: SourceText) -> Self {
         let mut lexer = Lexer::new(&text);
         let mut tokens = Vec::new();
@@ -49,111 +76,11 @@ impl Parser {
         }
     }
 
-    fn peek(&self, offset: usize) -> &SyntaxToken {
-        let index = self.position + offset;
-        if index >= self.tokens.len() {
-            self.tokens.last().unwrap()
-        } else {
-            self.tokens.get(index).unwrap()
-        }
-    }
-
-    fn peek_mut(&mut self, offset: usize) -> &mut SyntaxToken {
-        let index = self.position + offset;
-        if index >= self.tokens.len() {
-            self.tokens.last_mut().unwrap()
-        } else {
-            self.tokens.get_mut(index).unwrap()
-        }
-    }
-
-    fn current(&self) -> &SyntaxToken {
-        self.peek(0)
-    }
-
-    fn current_mut(&mut self) -> &mut SyntaxToken {
-        self.peek_mut(0)
-    }
-
     fn next_token(&mut self) -> SyntaxToken {
         let mut old_current = SyntaxToken::default();
         std::mem::swap(&mut old_current, self.current_mut());
         self.position += 1;
         old_current
-    }
-
-    fn match_token(&mut self, kind: SyntaxKind) -> SyntaxToken {
-        if self.current().kind == kind {
-            self.next_token()
-        } else {
-            self.diagnostics.report_unexpected_token(
-                self.current().span(),
-                self.current().kind,
-                kind,
-            );
-            SyntaxToken {
-                kind,
-                position: self.current().position,
-                text: String::new(),
-                value: Object::Null,
-            }
-        }
-    }
-
-    pub(crate) fn parse_compilation_unit(&mut self) -> CompilationUnitSyntax {
-        let expression = self.parse_statement();
-        let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
-        CompilationUnitSyntax {
-            statement: *expression,
-            end_of_file_token,
-        }
-    }
-
-    fn parse_statement(&mut self) -> Box<StatementSyntax> {
-        match self.current().kind {
-            SyntaxKind::OpenBraceToken => {
-                Box::new(StatementSyntax::Block(self.parse_block_statement()))
-            }
-            SyntaxKind::LetKeyword | SyntaxKind::VarKeyword => Box::new(
-                StatementSyntax::VariableDeclaration(self.parse_variable_declaration_statement()),
-            ),
-            SyntaxKind::IfKeyword => Box::new(StatementSyntax::If(self.parse_if_statement())),
-            SyntaxKind::WhileKeyword => {
-                Box::new(StatementSyntax::While(self.parse_while_statement()))
-            }
-            _ => Box::new(StatementSyntax::Expression(
-                self.parse_expression_statement(),
-            )),
-        }
-    }
-
-    fn parse_block_statement(&mut self) -> BlockStatementSyntax {
-        let mut statements = Vec::new();
-
-        let open_brace_token = self.match_token(SyntaxKind::OpenBraceToken);
-        while ![SyntaxKind::EndOfFileToken, SyntaxKind::CloseBraceToken]
-            .contains(&self.current().kind)
-        {
-            let statement = self.parse_statement();
-            statements.push(*statement);
-        }
-        let close_brace_token = self.match_token(SyntaxKind::CloseBraceToken);
-        BlockStatementSyntax {
-            open_brace_token,
-            statements,
-            close_brace_token,
-        }
-    }
-
-    fn parse_expression_statement(&mut self) -> ExpressionStatementSyntax {
-        let expression = self.parse_expression();
-        ExpressionStatementSyntax {
-            expression: *expression,
-        }
-    }
-
-    fn parse_expression(&mut self) -> Box<ExpressionSyntax> {
-        self.parse_assignment_expression()
     }
 
     fn parse_assignment_expression(&mut self) -> Box<ExpressionSyntax> {
@@ -204,13 +131,107 @@ impl Parser {
         left
     }
 
-    fn parse_primary_expression(&mut self) -> Box<ExpressionSyntax> {
-        match self.current().kind {
-            SyntaxKind::OpenParenthesisToken => self.parse_parenthesized_expression(),
-            SyntaxKind::TrueKeyword | SyntaxKind::FalseKeyword => self.parse_boolean_literal(),
-            SyntaxKind::NumberToken => self.parse_number_literal(),
-            _ => self.parse_name_expression(),
+    fn parse_block_statement(&mut self) -> BlockStatementSyntax {
+        let mut statements = Vec::new();
+
+        let open_brace_token = self.match_token(SyntaxKind::OpenBraceToken);
+        while ![SyntaxKind::EndOfFileToken, SyntaxKind::CloseBraceToken]
+            .contains(&self.current().kind)
+        {
+            let statement = self.parse_statement();
+            statements.push(*statement);
         }
+        let close_brace_token = self.match_token(SyntaxKind::CloseBraceToken);
+        BlockStatementSyntax {
+            open_brace_token,
+            statements,
+            close_brace_token,
+        }
+    }
+
+    fn parse_boolean_literal(&mut self) -> Box<ExpressionSyntax> {
+        let value = self.current().kind == SyntaxKind::TrueKeyword;
+        let keyword_token = self.match_token(if value {
+            SyntaxKind::TrueKeyword
+        } else {
+            SyntaxKind::FalseKeyword
+        });
+        Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
+            literal_token: keyword_token,
+            value: Object::Boolean(value),
+        }))
+    }
+
+    pub(crate) fn parse_compilation_unit(&mut self) -> CompilationUnitSyntax {
+        let expression = self.parse_statement();
+        let end_of_file_token = self.match_token(SyntaxKind::EndOfFileToken);
+        CompilationUnitSyntax {
+            statement: *expression,
+            end_of_file_token,
+        }
+    }
+
+    fn parse_else_clause(&mut self) -> Option<ElseClauseSyntax> {
+        if self.current().kind != SyntaxKind::ElseKeyword {
+            return None;
+        }
+
+        let else_keyword = self.next_token();
+        let else_statement = self.parse_statement();
+        Some(ElseClauseSyntax {
+            else_keyword,
+            else_statement,
+        })
+    }
+
+    fn parse_expression(&mut self) -> Box<ExpressionSyntax> {
+        self.parse_assignment_expression()
+    }
+
+    fn parse_expression_statement(&mut self) -> ExpressionStatementSyntax {
+        let expression = self.parse_expression();
+        ExpressionStatementSyntax {
+            expression: *expression,
+        }
+    }
+
+    fn parse_for_statement(&mut self) -> ForStatementSyntax {
+        let for_keyword = self.match_token(SyntaxKind::ForKeyword);
+        let identifier_token = self.match_token(SyntaxKind::IdentifierToken);
+        let equals_token = self.match_token(SyntaxKind::EqualsToken);
+        let lower_bound = *self.parse_expression();
+        let to_keyword = self.match_token(SyntaxKind::ToKeyword);
+        let upper_bound = *self.parse_expression();
+        let body = self.parse_statement();
+        ForStatementSyntax {
+            for_keyword,
+            identifier_token,
+            equals_token,
+            lower_bound,
+            to_keyword,
+            upper_bound,
+            body,
+        }
+    }
+
+    fn parse_if_statement(&mut self) -> IfStatementSyntax {
+        let if_keyword = self.match_token(SyntaxKind::IfKeyword);
+        let condition = self.parse_expression();
+        let then_statement = self.parse_statement();
+        let else_clause = self.parse_else_clause();
+        IfStatementSyntax {
+            if_keyword,
+            condition: *condition,
+            then_statement,
+            else_clause,
+        }
+    }
+
+    fn parse_name_expression(&mut self) -> Box<ExpressionSyntax> {
+        let identifier_token = self.match_token(SyntaxKind::IdentifierToken);
+        Box::new(ExpressionSyntax::Name(NameExpressionSyntax {
+            identifier_token,
+        }))
     }
 
     fn parse_number_literal(&mut self) -> Box<ExpressionSyntax> {
@@ -234,24 +255,32 @@ impl Parser {
         ))
     }
 
-    fn parse_boolean_literal(&mut self) -> Box<ExpressionSyntax> {
-        let value = self.current().kind == SyntaxKind::TrueKeyword;
-        let keyword_token = self.match_token(if value {
-            SyntaxKind::TrueKeyword
-        } else {
-            SyntaxKind::FalseKeyword
-        });
-        Box::new(ExpressionSyntax::Literal(LiteralExpressionSyntax {
-            literal_token: keyword_token,
-            value: Object::Boolean(value),
-        }))
+    fn parse_primary_expression(&mut self) -> Box<ExpressionSyntax> {
+        match self.current().kind {
+            SyntaxKind::OpenParenthesisToken => self.parse_parenthesized_expression(),
+            SyntaxKind::TrueKeyword | SyntaxKind::FalseKeyword => self.parse_boolean_literal(),
+            SyntaxKind::NumberToken => self.parse_number_literal(),
+            _ => self.parse_name_expression(),
+        }
     }
 
-    fn parse_name_expression(&mut self) -> Box<ExpressionSyntax> {
-        let identifier_token = self.match_token(SyntaxKind::IdentifierToken);
-        Box::new(ExpressionSyntax::Name(NameExpressionSyntax {
-            identifier_token,
-        }))
+    fn parse_statement(&mut self) -> Box<StatementSyntax> {
+        match self.current().kind {
+            SyntaxKind::OpenBraceToken => {
+                Box::new(StatementSyntax::Block(self.parse_block_statement()))
+            }
+            SyntaxKind::LetKeyword | SyntaxKind::VarKeyword => Box::new(
+                StatementSyntax::VariableDeclaration(self.parse_variable_declaration_statement()),
+            ),
+            SyntaxKind::IfKeyword => Box::new(StatementSyntax::If(self.parse_if_statement())),
+            SyntaxKind::WhileKeyword => {
+                Box::new(StatementSyntax::While(self.parse_while_statement()))
+            }
+            SyntaxKind::ForKeyword => Box::new(StatementSyntax::For(self.parse_for_statement())),
+            _ => Box::new(StatementSyntax::Expression(
+                self.parse_expression_statement(),
+            )),
+        }
     }
 
     fn parse_variable_declaration_statement(&mut self) -> VariableDeclarationStatementSyntax {
@@ -272,32 +301,6 @@ impl Parser {
         }
     }
 
-    fn parse_if_statement(&mut self) -> IfStatementSyntax {
-        let if_keyword = self.match_token(SyntaxKind::IfKeyword);
-        let condition = self.parse_expression();
-        let then_statement = self.parse_statement();
-        let else_clause = self.parse_else_clause();
-        IfStatementSyntax {
-            if_keyword,
-            condition: *condition,
-            then_statement,
-            else_clause,
-        }
-    }
-
-    fn parse_else_clause(&mut self) -> Option<ElseClauseSyntax> {
-        if self.current().kind != SyntaxKind::ElseKeyword {
-            return None;
-        }
-
-        let else_keyword = self.next_token();
-        let else_statement = self.parse_statement();
-        Some(ElseClauseSyntax {
-            else_keyword,
-            else_statement,
-        })
-    }
-
     fn parse_while_statement(&mut self) -> WhileStatementSyntax {
         let keyword = self.match_token(SyntaxKind::WhileKeyword);
         let condition = *self.parse_expression();
@@ -306,6 +309,24 @@ impl Parser {
             keyword,
             condition,
             body,
+        }
+    }
+
+    fn peek(&self, offset: usize) -> &SyntaxToken {
+        let index = self.position + offset;
+        if index >= self.tokens.len() {
+            self.tokens.last().unwrap()
+        } else {
+            self.tokens.get(index).unwrap()
+        }
+    }
+
+    fn peek_mut(&mut self, offset: usize) -> &mut SyntaxToken {
+        let index = self.position + offset;
+        if index >= self.tokens.len() {
+            self.tokens.last_mut().unwrap()
+        } else {
+            self.tokens.get_mut(index).unwrap()
         }
     }
 }

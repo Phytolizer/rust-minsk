@@ -87,6 +87,12 @@ impl<'v> Evaluator<'v> {
         }
     }
 
+    fn evaluate_block_statement(&mut self, s: &BoundBlockStatement) {
+        for statement in s.statements.iter() {
+            self.evaluate_statement(statement);
+        }
+    }
+
     fn evaluate_expression(&mut self, expr: &BoundExpression) -> Object {
         match expr {
             BoundExpression::Binary(e) => self.evaluate_binary_expression(e),
@@ -94,6 +100,30 @@ impl<'v> Evaluator<'v> {
             BoundExpression::Literal(e) => self.evaluate_literal_expression(e),
             BoundExpression::Variable(e) => self.evaluate_variable_expression(e),
             BoundExpression::Assignment(e) => self.evaluate_assignment_expression(e),
+        }
+    }
+
+    fn evaluate_expression_statement(&mut self, s: &BoundExpressionStatement) {
+        self.last_value = self.evaluate_expression(&s.expression);
+    }
+
+    fn evaluate_for_statement(&mut self, s: &crate::binding::BoundForStatement) {
+        let lower_bound = self.evaluate_expression(&s.lower_bound);
+        let upper_bound = self.evaluate_expression(&s.upper_bound);
+        let mut iter = lower_bound.as_number();
+        while iter <= upper_bound.as_number() {
+            self.variables.insert(s.variable.clone(), Object::Number(iter));
+            self.evaluate_statement(&s.body);
+            iter += 1;
+        }
+    }
+
+    fn evaluate_if_statement(&mut self, s: &BoundIfStatement) {
+        let condition = self.evaluate_expression(&s.condition);
+        if condition.as_boolean() {
+            self.evaluate_statement(&s.then_statement);
+        } else if let Some(else_statement) = &s.else_statement {
+            self.evaluate_statement(else_statement);
         }
     }
 
@@ -105,6 +135,7 @@ impl<'v> Evaluator<'v> {
         match root {
             BoundStatement::Block(s) => self.evaluate_block_statement(s),
             BoundStatement::Expression(s) => self.evaluate_expression_statement(s),
+            BoundStatement::For(s) => self.evaluate_for_statement(s),
             BoundStatement::If(s) => self.evaluate_if_statement(s),
             BoundStatement::VariableDeclaration(s) => {
                 self.evaluate_variable_declaration_statement(s)
@@ -123,41 +154,15 @@ impl<'v> Evaluator<'v> {
         }
     }
 
-    fn evaluate_variable_expression(&self, e: &crate::binding::BoundVariableExpression) -> Object {
-        let value = self.variables.get(&e.variable).unwrap();
-        value.clone()
-    }
-
-    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
-        Self {
-            variables,
-            last_value: Object::Null,
-        }
-    }
-
-    fn evaluate_block_statement(&mut self, s: &BoundBlockStatement) {
-        for statement in s.statements.iter() {
-            self.evaluate_statement(statement);
-        }
-    }
-
-    fn evaluate_expression_statement(&mut self, s: &BoundExpressionStatement) {
-        self.last_value = self.evaluate_expression(&s.expression);
-    }
-
     fn evaluate_variable_declaration_statement(&mut self, s: &BoundVariableDeclarationStatement) {
         let value = self.evaluate_expression(&s.initializer);
         self.variables.insert(s.variable.clone(), value.clone());
         self.last_value = value;
     }
 
-    fn evaluate_if_statement(&mut self, s: &BoundIfStatement) {
-        let condition = self.evaluate_expression(&s.condition);
-        if condition.as_boolean() {
-            self.evaluate_statement(&s.then_statement);
-        } else if let Some(else_statement) = &s.else_statement {
-            self.evaluate_statement(else_statement);
-        }
+    fn evaluate_variable_expression(&self, e: &crate::binding::BoundVariableExpression) -> Object {
+        let value = self.variables.get(&e.variable).unwrap();
+        value.clone()
     }
 
     fn evaluate_while_statement(&mut self, s: &BoundWhileStatement) {
@@ -167,6 +172,13 @@ impl<'v> Evaluator<'v> {
                 break;
             }
             self.evaluate_statement(&s.body);
+        }
+    }
+
+    pub(crate) fn new(variables: &'v mut HashMap<VariableSymbol, Object>) -> Self {
+        Self {
+            variables,
+            last_value: Object::Null,
         }
     }
 }
@@ -371,6 +383,17 @@ mod tests {
                 }",
                 Object::Number(55),
             ),
+            (
+                "{
+                    var result = 0
+                    for i = 1 to 10
+                    {
+                        result = result + i
+                    }
+                    result
+                }",
+                Object::Number(55),
+            )
         ]
     }
 

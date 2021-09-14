@@ -10,6 +10,7 @@ use crate::syntax::expressions::ParenthesizedExpressionSyntax;
 use crate::syntax::expressions::UnaryExpressionSyntax;
 use crate::syntax::statements::BlockStatementSyntax;
 use crate::syntax::statements::ExpressionStatementSyntax;
+use crate::syntax::statements::ForStatementSyntax;
 use crate::syntax::statements::IfStatementSyntax;
 use crate::syntax::statements::StatementSyntaxRef;
 use crate::syntax::statements::VariableDeclarationStatementSyntax;
@@ -36,6 +37,7 @@ pub(crate) enum BoundNodeKind {
 
     BlockStatement,
     ExpressionStatement,
+    ForStatement,
     IfStatement,
     VariableDeclarationStatement,
     WhileStatement,
@@ -59,6 +61,7 @@ impl BoundNode {
 pub(crate) enum BoundStatement {
     Block(BoundBlockStatement),
     Expression(BoundExpressionStatement),
+    For(BoundForStatement),
     If(BoundIfStatement),
     VariableDeclaration(BoundVariableDeclarationStatement),
     While(BoundWhileStatement),
@@ -69,6 +72,7 @@ impl BoundStatement {
         match self {
             BoundStatement::Block(_) => BoundNodeKind::BlockStatement,
             BoundStatement::Expression(_) => BoundNodeKind::ExpressionStatement,
+            BoundStatement::For(_) => BoundNodeKind::ForStatement,
             BoundStatement::If(_) => BoundNodeKind::IfStatement,
             BoundStatement::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
             BoundStatement::While(_) => BoundNodeKind::WhileStatement,
@@ -84,6 +88,14 @@ pub(crate) struct BoundBlockStatement {
 #[derive(Debug, Clone)]
 pub(crate) struct BoundExpressionStatement {
     pub(crate) expression: BoundExpression,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundForStatement {
+    pub(crate) variable: VariableSymbol,
+    pub(crate) lower_bound: BoundExpression,
+    pub(crate) upper_bound: BoundExpression,
+    pub(crate) body: Box<BoundStatement>,
 }
 
 #[derive(Debug, Clone)]
@@ -198,127 +210,6 @@ pub(crate) struct Binder {
 }
 
 impl Binder {
-    pub(crate) fn bind_statement(&mut self, statement: StatementSyntaxRef) -> Box<BoundStatement> {
-        match statement {
-            StatementSyntaxRef::Block(s) => self.bind_block_statement(s),
-            StatementSyntaxRef::Expression(s) => self.bind_expression_statement(s),
-            StatementSyntaxRef::If(s) => self.bind_if_statement(s),
-            StatementSyntaxRef::VariableDeclaration(s) => {
-                self.bind_variable_declaration_statement(s)
-            }
-            StatementSyntaxRef::While(s) => self.bind_while_statement(s),
-        }
-    }
-
-    pub(crate) fn bind_expression(
-        &mut self,
-        expression: ExpressionSyntaxRef,
-    ) -> Box<BoundExpression> {
-        match expression {
-            ExpressionSyntaxRef::Binary(e) => self.bind_binary_expression(e),
-            ExpressionSyntaxRef::Unary(e) => self.bind_unary_expression(e),
-            ExpressionSyntaxRef::Literal(e) => self.bind_literal_expression(e),
-            ExpressionSyntaxRef::Parenthesized(e) => self.bind_parenthesized_expression(e),
-            ExpressionSyntaxRef::Name(e) => self.bind_name_expression(e),
-            ExpressionSyntaxRef::Assignment(e) => self.bind_assignment_expression(e),
-        }
-    }
-
-    fn bind_expression_with_type(
-        &mut self,
-        expression: ExpressionSyntaxRef,
-        target_type: ObjectKind,
-    ) -> Box<BoundExpression> {
-        let result = self.bind_expression(expression);
-        if result.get_type() != target_type {
-            self.diagnostics.report_cannot_convert(
-                SyntaxNodeRef::Expression(expression).span(),
-                result.get_type(),
-                target_type,
-            );
-        }
-        result
-    }
-
-    fn bind_binary_expression(&mut self, e: &BinaryExpressionSyntax) -> Box<BoundExpression> {
-        let left = self.bind_expression(e.left.create_ref());
-        let right = self.bind_expression(e.right.create_ref());
-        let operator =
-            BoundBinaryOperator::bind(e.operator_token.kind, left.get_type(), right.get_type());
-        if let Some(operator) = operator {
-            Box::new(BoundExpression::Binary(BoundBinaryExpression {
-                left,
-                operator,
-                right,
-            }))
-        } else {
-            self.diagnostics.report_undefined_binary_operator(
-                e.operator_token.span(),
-                e.operator_token.text.clone(),
-                left.get_type(),
-                right.get_type(),
-            );
-            left
-        }
-    }
-
-    fn bind_unary_expression(&mut self, e: &UnaryExpressionSyntax) -> Box<BoundExpression> {
-        let operand = self.bind_expression(e.operand.create_ref());
-        let operator = BoundUnaryOperator::bind(e.operator_token.kind, operand.get_type());
-        if let Some(operator) = operator {
-            Box::new(BoundExpression::Unary(BoundUnaryExpression {
-                operator,
-                operand,
-            }))
-        } else {
-            self.diagnostics.report_undefined_unary_operator(
-                e.operator_token.span(),
-                e.operator_token.text.clone(),
-                operand.get_type(),
-            );
-            operand
-        }
-    }
-
-    fn bind_literal_expression(&self, e: &LiteralExpressionSyntax) -> Box<BoundExpression> {
-        Box::new(BoundExpression::Literal(BoundLiteralExpression {
-            value: e.value.clone(),
-        }))
-    }
-
-    fn bind_parenthesized_expression(
-        &mut self,
-        e: &ParenthesizedExpressionSyntax,
-    ) -> Box<BoundExpression> {
-        self.bind_expression(e.expression.create_ref())
-    }
-
-    pub(crate) fn new(scope: Option<Box<BoundScope>>) -> Self {
-        Self {
-            diagnostics: DiagnosticBag::new(),
-            scope: BoundScope::new(scope),
-        }
-    }
-
-    fn bind_name_expression(&mut self, e: &NameExpressionSyntax) -> Box<BoundExpression> {
-        let name = e.identifier_token.text.clone();
-
-        let variable = self.scope.try_lookup(&name);
-
-        match variable {
-            Some(v) => Box::new(BoundExpression::Variable(BoundVariableExpression {
-                variable: v.clone(),
-            })),
-            None => {
-                self.diagnostics
-                    .report_undefined_name(e.identifier_token.span(), &name);
-                Box::new(BoundExpression::Literal(BoundLiteralExpression {
-                    value: Object::Number(0),
-                }))
-            }
-        }
-    }
-
     fn bind_assignment_expression(
         &mut self,
         e: &AssignmentExpressionSyntax,
@@ -354,6 +245,112 @@ impl Binder {
         }))
     }
 
+    fn bind_binary_expression(&mut self, e: &BinaryExpressionSyntax) -> Box<BoundExpression> {
+        let left = self.bind_expression(e.left.create_ref());
+        let right = self.bind_expression(e.right.create_ref());
+        let operator =
+            BoundBinaryOperator::bind(e.operator_token.kind, left.get_type(), right.get_type());
+        if let Some(operator) = operator {
+            Box::new(BoundExpression::Binary(BoundBinaryExpression {
+                left,
+                operator,
+                right,
+            }))
+        } else {
+            self.diagnostics.report_undefined_binary_operator(
+                e.operator_token.span(),
+                e.operator_token.text.clone(),
+                left.get_type(),
+                right.get_type(),
+            );
+            left
+        }
+    }
+
+    fn bind_block_statement(&mut self, s: &BlockStatementSyntax) -> Box<BoundStatement> {
+        let mut statements = Vec::new();
+
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, &mut self.scope);
+        self.scope = BoundScope::new(Some(Box::new(scope)));
+
+        for statement_syntax in &s.statements {
+            let statement = self.bind_statement(statement_syntax.create_ref());
+            statements.push(*statement);
+        }
+
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, self.scope.parent.as_mut().unwrap());
+        self.scope = scope;
+
+        Box::new(BoundStatement::Block(BoundBlockStatement { statements }))
+    }
+
+    pub(crate) fn bind_expression(
+        &mut self,
+        expression: ExpressionSyntaxRef,
+    ) -> Box<BoundExpression> {
+        match expression {
+            ExpressionSyntaxRef::Binary(e) => self.bind_binary_expression(e),
+            ExpressionSyntaxRef::Unary(e) => self.bind_unary_expression(e),
+            ExpressionSyntaxRef::Literal(e) => self.bind_literal_expression(e),
+            ExpressionSyntaxRef::Parenthesized(e) => self.bind_parenthesized_expression(e),
+            ExpressionSyntaxRef::Name(e) => self.bind_name_expression(e),
+            ExpressionSyntaxRef::Assignment(e) => self.bind_assignment_expression(e),
+        }
+    }
+
+    fn bind_expression_statement(&mut self, s: &ExpressionStatementSyntax) -> Box<BoundStatement> {
+        let expression = self.bind_expression(s.expression.create_ref());
+        Box::new(BoundStatement::Expression(BoundExpressionStatement {
+            expression: *expression,
+        }))
+    }
+
+    fn bind_expression_with_type(
+        &mut self,
+        expression: ExpressionSyntaxRef,
+        target_type: ObjectKind,
+    ) -> Box<BoundExpression> {
+        let result = self.bind_expression(expression);
+        if result.get_type() != target_type {
+            self.diagnostics.report_cannot_convert(
+                SyntaxNodeRef::Expression(expression).span(),
+                result.get_type(),
+                target_type,
+            );
+        }
+        result
+    }
+
+    fn bind_for_statement(&mut self, s: &ForStatementSyntax) -> Box<BoundStatement> {
+        let lower_bound =
+            *self.bind_expression_with_type(s.lower_bound.create_ref(), ObjectKind::Number);
+        let upper_bound =
+            *self.bind_expression_with_type(s.upper_bound.create_ref(), ObjectKind::Number);
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, &mut self.scope);
+        self.scope = BoundScope::new(Some(Box::new(scope)));
+        let name = s.identifier_token.text.clone();
+        let variable = VariableSymbol {
+            name,
+            is_read_only: false,
+            kind: ObjectKind::Number,
+        };
+        // will always succeed because it's a new scope
+        self.scope.try_declare(variable.clone());
+        let body = self.bind_statement(s.body.create_ref());
+        let mut scope = BoundScope::new(None);
+        std::mem::swap(&mut scope, &mut self.scope.parent.as_mut().unwrap());
+        self.scope = scope;
+        Box::new(BoundStatement::For(BoundForStatement {
+            variable,
+            lower_bound,
+            upper_bound,
+            body,
+        }))
+    }
+
     pub(crate) fn bind_global_scope(
         previous: Option<&BoundGlobalScope>,
         syntax: CompilationUnitSyntaxRef,
@@ -376,48 +373,82 @@ impl Binder {
         }
     }
 
-    fn create_parent_scopes(mut previous: Option<&BoundGlobalScope>) -> Option<Box<BoundScope>> {
-        let mut stack = Vec::new();
-        while let Some(p) = previous {
-            stack.push(p);
-            previous = p.previous.as_ref().map(|p| p.as_ref());
-        }
-
-        let mut parent = None;
-        while let Some(global) = stack.pop() {
-            let mut scope = BoundScope::new(parent);
-            for v in &global.variables {
-                scope.try_declare(v.clone());
-            }
-            parent = Some(Box::new(scope));
-        }
-        parent
-    }
-
-    fn bind_block_statement(&mut self, s: &BlockStatementSyntax) -> Box<BoundStatement> {
-        let mut statements = Vec::new();
-
-        let mut scope = BoundScope::new(None);
-        std::mem::swap(&mut scope, &mut self.scope);
-        self.scope = BoundScope::new(Some(Box::new(scope)));
-
-        for statement_syntax in &s.statements {
-            let statement = self.bind_statement(statement_syntax.create_ref());
-            statements.push(*statement);
-        }
-
-        let mut scope = BoundScope::new(None);
-        std::mem::swap(&mut scope, self.scope.parent.as_mut().unwrap());
-        self.scope = scope;
-
-        Box::new(BoundStatement::Block(BoundBlockStatement { statements }))
-    }
-
-    fn bind_expression_statement(&mut self, s: &ExpressionStatementSyntax) -> Box<BoundStatement> {
-        let expression = self.bind_expression(s.expression.create_ref());
-        Box::new(BoundStatement::Expression(BoundExpressionStatement {
-            expression: *expression,
+    fn bind_if_statement(&mut self, s: &IfStatementSyntax) -> Box<BoundStatement> {
+        let condition =
+            self.bind_expression_with_type(s.condition.create_ref(), ObjectKind::Boolean);
+        let then_statement = self.bind_statement(s.then_statement.create_ref());
+        let else_statement = s
+            .else_clause
+            .as_ref()
+            .map(|c| self.bind_statement(c.else_statement.create_ref()));
+        Box::new(BoundStatement::If(BoundIfStatement {
+            condition: *condition,
+            then_statement,
+            else_statement,
         }))
+    }
+
+    fn bind_literal_expression(&self, e: &LiteralExpressionSyntax) -> Box<BoundExpression> {
+        Box::new(BoundExpression::Literal(BoundLiteralExpression {
+            value: e.value.clone(),
+        }))
+    }
+
+    fn bind_name_expression(&mut self, e: &NameExpressionSyntax) -> Box<BoundExpression> {
+        let name = e.identifier_token.text.clone();
+
+        let variable = self.scope.try_lookup(&name);
+
+        match variable {
+            Some(v) => Box::new(BoundExpression::Variable(BoundVariableExpression {
+                variable: v.clone(),
+            })),
+            None => {
+                self.diagnostics
+                    .report_undefined_name(e.identifier_token.span(), &name);
+                Box::new(BoundExpression::Literal(BoundLiteralExpression {
+                    value: Object::Number(0),
+                }))
+            }
+        }
+    }
+
+    fn bind_parenthesized_expression(
+        &mut self,
+        e: &ParenthesizedExpressionSyntax,
+    ) -> Box<BoundExpression> {
+        self.bind_expression(e.expression.create_ref())
+    }
+
+    pub(crate) fn bind_statement(&mut self, statement: StatementSyntaxRef) -> Box<BoundStatement> {
+        match statement {
+            StatementSyntaxRef::Block(s) => self.bind_block_statement(s),
+            StatementSyntaxRef::Expression(s) => self.bind_expression_statement(s),
+            StatementSyntaxRef::For(s) => self.bind_for_statement(s),
+            StatementSyntaxRef::If(s) => self.bind_if_statement(s),
+            StatementSyntaxRef::VariableDeclaration(s) => {
+                self.bind_variable_declaration_statement(s)
+            }
+            StatementSyntaxRef::While(s) => self.bind_while_statement(s),
+        }
+    }
+
+    fn bind_unary_expression(&mut self, e: &UnaryExpressionSyntax) -> Box<BoundExpression> {
+        let operand = self.bind_expression(e.operand.create_ref());
+        let operator = BoundUnaryOperator::bind(e.operator_token.kind, operand.get_type());
+        if let Some(operator) = operator {
+            Box::new(BoundExpression::Unary(BoundUnaryExpression {
+                operator,
+                operand,
+            }))
+        } else {
+            self.diagnostics.report_undefined_unary_operator(
+                e.operator_token.span(),
+                e.operator_token.text.clone(),
+                operand.get_type(),
+            );
+            operand
+        }
     }
 
     fn bind_variable_declaration_statement(
@@ -444,21 +475,6 @@ impl Binder {
         ))
     }
 
-    fn bind_if_statement(&mut self, s: &IfStatementSyntax) -> Box<BoundStatement> {
-        let condition =
-            self.bind_expression_with_type(s.condition.create_ref(), ObjectKind::Boolean);
-        let then_statement = self.bind_statement(s.then_statement.create_ref());
-        let else_statement = s
-            .else_clause
-            .as_ref()
-            .map(|c| self.bind_statement(c.else_statement.create_ref()));
-        Box::new(BoundStatement::If(BoundIfStatement {
-            condition: *condition,
-            then_statement,
-            else_statement,
-        }))
-    }
-
     fn bind_while_statement(&mut self, s: &WhileStatementSyntax) -> Box<BoundStatement> {
         let condition =
             self.bind_expression_with_type(s.condition.create_ref(), ObjectKind::Boolean);
@@ -467,5 +483,30 @@ impl Binder {
             condition: *condition,
             body,
         }))
+    }
+
+    fn create_parent_scopes(mut previous: Option<&BoundGlobalScope>) -> Option<Box<BoundScope>> {
+        let mut stack = Vec::new();
+        while let Some(p) = previous {
+            stack.push(p);
+            previous = p.previous.as_ref().map(|p| p.as_ref());
+        }
+
+        let mut parent = None;
+        while let Some(global) = stack.pop() {
+            let mut scope = BoundScope::new(parent);
+            for v in &global.variables {
+                scope.try_declare(v.clone());
+            }
+            parent = Some(Box::new(scope));
+        }
+        parent
+    }
+
+    pub(crate) fn new(scope: Option<Box<BoundScope>>) -> Self {
+        Self {
+            diagnostics: DiagnosticBag::new(),
+            scope: BoundScope::new(scope),
+        }
     }
 }

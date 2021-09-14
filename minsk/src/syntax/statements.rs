@@ -8,6 +8,7 @@ use super::SyntaxToken;
 pub enum StatementSyntax {
     Block(BlockStatementSyntax),
     Expression(ExpressionStatementSyntax),
+    For(ForStatementSyntax),
     If(IfStatementSyntax),
     VariableDeclaration(VariableDeclarationStatementSyntax),
     While(WhileStatementSyntax),
@@ -18,6 +19,7 @@ impl StatementSyntax {
         match self {
             StatementSyntax::Block(s) => StatementSyntaxRef::Block(s),
             StatementSyntax::Expression(s) => StatementSyntaxRef::Expression(s),
+            StatementSyntax::For(s) => StatementSyntaxRef::For(s),
             StatementSyntax::If(s) => StatementSyntaxRef::If(s),
             StatementSyntax::VariableDeclaration(s) => StatementSyntaxRef::VariableDeclaration(s),
             StatementSyntax::While(s) => StatementSyntaxRef::While(s),
@@ -29,6 +31,7 @@ impl StatementSyntax {
 pub enum StatementSyntaxRef<'a> {
     Block(&'a BlockStatementSyntax),
     Expression(&'a ExpressionStatementSyntax),
+    For(&'a ForStatementSyntax),
     If(&'a IfStatementSyntax),
     VariableDeclaration(&'a VariableDeclarationStatementSyntax),
     While(&'a WhileStatementSyntax),
@@ -39,6 +42,7 @@ impl<'a> StatementSyntaxRef<'a> {
         match self {
             StatementSyntaxRef::Block(_) => SyntaxKind::BlockStatement,
             StatementSyntaxRef::Expression(_) => SyntaxKind::ExpressionStatement,
+            StatementSyntaxRef::For(_) => SyntaxKind::ForStatement,
             StatementSyntaxRef::If(_) => SyntaxKind::IfStatement,
             StatementSyntaxRef::VariableDeclaration(_) => SyntaxKind::VariableDeclarationStatement,
             StatementSyntaxRef::While(_) => SyntaxKind::WhileStatement,
@@ -62,6 +66,15 @@ impl<'a> StatementSyntaxRef<'a> {
             StatementSyntaxRef::Expression(s) => {
                 vec![SyntaxNodeRef::Expression(s.expression.create_ref())]
             }
+            StatementSyntaxRef::For(s) => vec![
+                SyntaxNodeRef::Token(&s.for_keyword),
+                SyntaxNodeRef::Token(&s.identifier_token),
+                SyntaxNodeRef::Token(&s.equals_token),
+                SyntaxNodeRef::Expression(s.lower_bound.create_ref()),
+                SyntaxNodeRef::Token(&s.to_keyword),
+                SyntaxNodeRef::Expression(s.upper_bound.create_ref()),
+                SyntaxNodeRef::Statement(s.body.create_ref()),
+            ],
             StatementSyntaxRef::If(s) => {
                 let mut result = vec![
                     SyntaxNodeRef::Token(&s.if_keyword),
@@ -98,6 +111,17 @@ pub struct BlockStatementSyntax {
 #[derive(Debug, Clone)]
 pub struct ExpressionStatementSyntax {
     pub expression: ExpressionSyntax,
+}
+
+#[derive(Debug, Clone)]
+pub struct ForStatementSyntax {
+    pub for_keyword: SyntaxToken,
+    pub identifier_token: SyntaxToken,
+    pub equals_token: SyntaxToken,
+    pub lower_bound: ExpressionSyntax,
+    pub to_keyword: SyntaxToken,
+    pub upper_bound: ExpressionSyntax,
+    pub body: Box<StatementSyntax>,
 }
 
 #[derive(Debug, Clone)]

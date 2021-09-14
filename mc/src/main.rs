@@ -6,13 +6,14 @@ use crossterm::style::SetForegroundColor;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use crossterm::ExecutableCommand;
+use insults::INSULTS;
 use minsk::compilation::Compilation;
 use minsk::plumbing::Object;
 use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
 use minsk::text::VariableSymbol;
+use rand::seq::SliceRandom;
 use rand::thread_rng;
-use rand::Rng;
 use std::collections::HashMap;
 use std::io::stdin;
 use std::io::stdout;
@@ -30,6 +31,9 @@ fn main() {
     let mut text_builder = String::new();
     let mut previous: Option<Compilation> = None;
     let mut rng = thread_rng();
+    let mut insults = INSULTS.iter().collect::<Vec<_>>();
+    insults.shuffle(&mut rng);
+    let mut insult_index = 0;
     loop {
         stdout().execute(SetForegroundColor(Color::Green)).unwrap();
         if text_builder.is_empty() {
@@ -115,9 +119,14 @@ fn main() {
 
         match result {
             Err(diagnostics) => {
-                let insult = insults::INSULTS[rng.gen_range(0..insults::INSULTS.len())];
+                let insult = insults[insult_index];
                 println!("\x1b[1;33m{}", insult);
                 println!("~~~");
+                insult_index += 1;
+                if insult_index == insults.len() {
+                    insults.shuffle(&mut rng);
+                    insult_index = 0;
+                }
                 println!();
                 for diagnostic in diagnostics {
                     let chars = source_text.as_chars();

@@ -11,12 +11,16 @@ use minsk::plumbing::Object;
 use minsk::syntax::SyntaxNodeRef;
 use minsk::syntax::SyntaxTree;
 use minsk::text::VariableSymbol;
+use rand::thread_rng;
+use rand::Rng;
 use std::collections::HashMap;
 use std::io::stdin;
 use std::io::stdout;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
+
+mod insults;
 
 fn main() {
     let mut reader = BufReader::new(stdin());
@@ -25,6 +29,7 @@ fn main() {
     let mut variables = HashMap::<VariableSymbol, Object>::new();
     let mut text_builder = String::new();
     let mut previous: Option<Compilation> = None;
+    let mut rng = thread_rng();
     loop {
         stdout().execute(SetForegroundColor(Color::Green)).unwrap();
         if text_builder.is_empty() {
@@ -110,6 +115,9 @@ fn main() {
 
         match result {
             Err(diagnostics) => {
+                let insult = insults::INSULTS[rng.gen_range(0..insults::INSULTS.len())];
+                println!("\x1b[1;33m{}", insult);
+                println!("~~~");
                 println!();
                 for diagnostic in diagnostics {
                     let chars = source_text.as_chars();

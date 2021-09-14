@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 crossterm = "0.21.0"
 minsk = { path = "../minsk" }
+rand = "0.8.4"

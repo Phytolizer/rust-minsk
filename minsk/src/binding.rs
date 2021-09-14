@@ -10,6 +10,7 @@ use crate::syntax::expressions::ParenthesizedExpressionSyntax;
 use crate::syntax::expressions::UnaryExpressionSyntax;
 use crate::syntax::statements::BlockStatementSyntax;
 use crate::syntax::statements::ExpressionStatementSyntax;
+use crate::syntax::statements::IfStatementSyntax;
 use crate::syntax::statements::StatementSyntaxRef;
 use crate::syntax::statements::VariableDeclarationStatementSyntax;
 use crate::syntax::CompilationUnitSyntaxRef;
@@ -34,6 +35,7 @@ pub(crate) enum BoundNodeKind {
 
     BlockStatement,
     ExpressionStatement,
+    IfStatement,
     VariableDeclarationStatement,
 }
 
@@ -55,6 +57,7 @@ impl BoundNode {
 pub(crate) enum BoundStatement {
     Block(BoundBlockStatement),
     Expression(BoundExpressionStatement),
+    If(BoundIfStatement),
     VariableDeclaration(BoundVariableDeclarationStatement),
 }
 
@@ -63,6 +66,7 @@ impl BoundStatement {
         match self {
             BoundStatement::Block(_) => BoundNodeKind::BlockStatement,
             BoundStatement::Expression(_) => BoundNodeKind::ExpressionStatement,
+            BoundStatement::If(_) => BoundNodeKind::IfStatement,
             BoundStatement::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
         }
     }
@@ -76,6 +80,13 @@ pub(crate) struct BoundBlockStatement {
 #[derive(Debug, Clone)]
 pub(crate) struct BoundExpressionStatement {
     pub(crate) expression: BoundExpression,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundIfStatement {
+    pub(crate) condition: BoundExpression,
+    pub(crate) then_statement: Box<BoundStatement>,
+    pub(crate) else_statement: Option<Box<BoundStatement>>,
 }
 
 #[derive(Debug, Clone)]
@@ -181,6 +192,7 @@ impl Binder {
         match statement {
             StatementSyntaxRef::Block(s) => self.bind_block_statement(s),
             StatementSyntaxRef::Expression(s) => self.bind_expression_statement(s),
+            StatementSyntaxRef::If(s) => self.bind_if_statement(s),
             StatementSyntaxRef::VariableDeclaration(s) => {
                 self.bind_variable_declaration_statement(s)
             }
@@ -199,6 +211,22 @@ impl Binder {
             ExpressionSyntaxRef::Name(e) => self.bind_name_expression(e),
             ExpressionSyntaxRef::Assignment(e) => self.bind_assignment_expression(e),
         }
+    }
+
+    fn bind_expression_with_type(
+        &mut self,
+        expression: ExpressionSyntaxRef,
+        target_type: ObjectKind,
+    ) -> Box<BoundExpression> {
+        let result = self.bind_expression(expression);
+        if result.get_type() != target_type {
+            self.diagnostics.report_cannot_convert(
+                SyntaxNodeRef::Expression(expression).span(),
+                result.get_type(),
+                target_type,
+            );
+        }
+        result
     }
 
     fn bind_binary_expression(&mut self, e: &BinaryExpressionSyntax) -> Box<BoundExpression> {
@@ -403,5 +431,20 @@ impl Binder {
                 initializer: *initializer,
             },
         ))
+    }
+
+    fn bind_if_statement(&mut self, s: &IfStatementSyntax) -> Box<BoundStatement> {
+        let condition =
+            self.bind_expression_with_type(s.condition.create_ref(), ObjectKind::Boolean);
+        let then_statement = self.bind_statement(s.then_statement.create_ref());
+        let else_statement = s
+            .else_clause
+            .as_ref()
+            .map(|c| self.bind_statement(c.else_statement.create_ref()));
+        Box::new(BoundStatement::If(BoundIfStatement {
+            condition: *condition,
+            then_statement,
+            else_statement,
+        }))
     }
 }

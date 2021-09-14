@@ -1,4 +1,5 @@
 use super::expressions::ExpressionSyntax;
+use super::ElseClauseSyntax;
 use super::SyntaxKind;
 use super::SyntaxNodeRef;
 use super::SyntaxToken;
@@ -7,6 +8,7 @@ use super::SyntaxToken;
 pub enum StatementSyntax {
     Block(BlockStatementSyntax),
     Expression(ExpressionStatementSyntax),
+    If(IfStatementSyntax),
     VariableDeclaration(VariableDeclarationStatementSyntax),
 }
 
@@ -15,6 +17,7 @@ impl StatementSyntax {
         match self {
             StatementSyntax::Block(s) => StatementSyntaxRef::Block(s),
             StatementSyntax::Expression(s) => StatementSyntaxRef::Expression(s),
+            StatementSyntax::If(s) => StatementSyntaxRef::If(s),
             StatementSyntax::VariableDeclaration(s) => StatementSyntaxRef::VariableDeclaration(s),
         }
     }
@@ -24,6 +27,7 @@ impl StatementSyntax {
 pub enum StatementSyntaxRef<'a> {
     Block(&'a BlockStatementSyntax),
     Expression(&'a ExpressionStatementSyntax),
+    If(&'a IfStatementSyntax),
     VariableDeclaration(&'a VariableDeclarationStatementSyntax),
 }
 
@@ -32,6 +36,7 @@ impl<'a> StatementSyntaxRef<'a> {
         match self {
             StatementSyntaxRef::Block(_) => SyntaxKind::BlockStatement,
             StatementSyntaxRef::Expression(_) => SyntaxKind::ExpressionStatement,
+            StatementSyntaxRef::If(_) => SyntaxKind::IfStatement,
             StatementSyntaxRef::VariableDeclaration(_) => SyntaxKind::VariableDeclarationStatement,
         }
     }
@@ -53,6 +58,17 @@ impl<'a> StatementSyntaxRef<'a> {
             StatementSyntaxRef::Expression(s) => {
                 vec![SyntaxNodeRef::Expression(s.expression.create_ref())]
             }
+            StatementSyntaxRef::If(s) => {
+                let mut result = vec![
+                    SyntaxNodeRef::Token(&s.if_keyword),
+                    SyntaxNodeRef::Expression(s.condition.create_ref()),
+                    SyntaxNodeRef::Statement(s.then_statement.create_ref()),
+                ];
+                if let Some(else_clause) = &s.else_clause {
+                    result.push(SyntaxNodeRef::ElseClause(else_clause));
+                }
+                result
+            }
             StatementSyntaxRef::VariableDeclaration(s) => vec![
                 SyntaxNodeRef::Token(&s.keyword),
                 SyntaxNodeRef::Token(&s.identifier),
@@ -73,6 +89,14 @@ pub struct BlockStatementSyntax {
 #[derive(Debug, Clone)]
 pub struct ExpressionStatementSyntax {
     pub expression: ExpressionSyntax,
+}
+
+#[derive(Debug, Clone)]
+pub struct IfStatementSyntax {
+    pub if_keyword: SyntaxToken,
+    pub condition: ExpressionSyntax,
+    pub then_statement: Box<StatementSyntax>,
+    pub else_clause: Option<ElseClauseSyntax>,
 }
 
 #[derive(Debug, Clone)]

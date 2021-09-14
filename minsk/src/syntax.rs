@@ -51,7 +51,9 @@ pub(crate) enum SyntaxKind {
     EndOfFileToken,
     BadToken,
 
+    ElseKeyword,
     FalseKeyword,
+    IfKeyword,
     LetKeyword,
     TrueKeyword,
     VarKeyword,
@@ -65,9 +67,11 @@ pub(crate) enum SyntaxKind {
 
     BlockStatement,
     ExpressionStatement,
+    IfStatement,
     VariableDeclarationStatement,
 
     CompilationUnit,
+    ElseClause,
 }
 
 impl SyntaxKind {
@@ -121,7 +125,9 @@ impl SyntaxKind {
             SyntaxKind::CloseParenthesisToken => Some(")"),
             SyntaxKind::OpenBraceToken => Some("{"),
             SyntaxKind::CloseBraceToken => Some("}"),
+            SyntaxKind::ElseKeyword => Some("else"),
             SyntaxKind::FalseKeyword => Some("false"),
+            SyntaxKind::IfKeyword => Some("if"),
             SyntaxKind::LetKeyword => Some("let"),
             SyntaxKind::TrueKeyword => Some("true"),
             SyntaxKind::VarKeyword => Some("var"),
@@ -132,7 +138,9 @@ impl SyntaxKind {
 
 pub(crate) fn keyword_kind(text: &str) -> SyntaxKind {
     match text {
+        "else" => SyntaxKind::ElseKeyword,
         "false" => SyntaxKind::FalseKeyword,
+        "if" => SyntaxKind::IfKeyword,
         "let" => SyntaxKind::LetKeyword,
         "true" => SyntaxKind::TrueKeyword,
         "var" => SyntaxKind::VarKeyword,
@@ -226,6 +234,7 @@ pub enum SyntaxNode {
     Statement(StatementSyntax),
     CompilationUnit(CompilationUnitSyntax),
     Token(SyntaxToken),
+    ElseClause(ElseClauseSyntax),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -234,15 +243,17 @@ pub enum SyntaxNodeRef<'a> {
     Statement(StatementSyntaxRef<'a>),
     CompilationUnit(CompilationUnitSyntaxRef<'a>),
     Token(&'a SyntaxToken),
+    ElseClause(&'a ElseClauseSyntax),
 }
 
 impl<'a> SyntaxNodeRef<'a> {
     pub(crate) fn kind(&self) -> SyntaxKind {
         match self {
             SyntaxNodeRef::Expression(e) => e.kind(),
-            &SyntaxNodeRef::Statement(s) => s.kind(),
+            SyntaxNodeRef::Statement(s) => s.kind(),
             SyntaxNodeRef::CompilationUnit(c) => c.kind(),
             SyntaxNodeRef::Token(t) => t.kind,
+            SyntaxNodeRef::ElseClause(_) => SyntaxKind::ElseClause,
         }
     }
 
@@ -252,6 +263,10 @@ impl<'a> SyntaxNodeRef<'a> {
             Self::Statement(s) => s.children(),
             Self::CompilationUnit(c) => c.children(),
             Self::Token(_) => vec![],
+            Self::ElseClause(e) => vec![
+                SyntaxNodeRef::Token(&e.else_keyword),
+                SyntaxNodeRef::Statement(e.else_statement.create_ref()),
+            ],
         }
     }
 
@@ -337,6 +352,7 @@ impl SyntaxNode {
             SyntaxNode::Statement(s) => SyntaxNodeRef::Statement(s.create_ref()),
             SyntaxNode::CompilationUnit(c) => SyntaxNodeRef::CompilationUnit(c.create_ref()),
             SyntaxNode::Token(t) => SyntaxNodeRef::Token(t),
+            SyntaxNode::ElseClause(e) => SyntaxNodeRef::ElseClause(e),
         }
     }
 }
@@ -381,6 +397,12 @@ impl<'a> CompilationUnitSyntaxRef<'a> {
             SyntaxNodeRef::Token(self.end_of_file_token),
         ]
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ElseClauseSyntax {
+    pub else_keyword: SyntaxToken,
+    pub else_statement: Box<StatementSyntax>,
 }
 
 #[cfg(test)]

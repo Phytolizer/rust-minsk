@@ -10,9 +10,11 @@ use crate::syntax::expressions::ParenthesizedExpressionSyntax;
 use crate::syntax::expressions::UnaryExpressionSyntax;
 use crate::syntax::statements::BlockStatementSyntax;
 use crate::syntax::statements::ExpressionStatementSyntax;
+use crate::syntax::statements::IfStatementSyntax;
 use crate::syntax::statements::StatementSyntax;
 use crate::syntax::statements::VariableDeclarationStatementSyntax;
 use crate::syntax::CompilationUnitSyntax;
+use crate::syntax::ElseClauseSyntax;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxToken;
 use crate::text::SourceText;
@@ -114,6 +116,7 @@ impl Parser {
             SyntaxKind::LetKeyword | SyntaxKind::VarKeyword => Box::new(
                 StatementSyntax::VariableDeclaration(self.parse_variable_declaration_statement()),
             ),
+            SyntaxKind::IfKeyword => Box::new(StatementSyntax::If(self.parse_if_statement())),
             _ => Box::new(StatementSyntax::Expression(
                 self.parse_expression_statement(),
             )),
@@ -263,6 +266,32 @@ impl Parser {
             equals_token,
             initializer: *initializer,
         }
+    }
+
+    fn parse_if_statement(&mut self) -> IfStatementSyntax {
+        let if_keyword = self.match_token(SyntaxKind::IfKeyword);
+        let condition = self.parse_expression();
+        let then_statement = self.parse_statement();
+        let else_clause = self.parse_else_clause();
+        IfStatementSyntax {
+            if_keyword,
+            condition: *condition,
+            then_statement,
+            else_clause,
+        }
+    }
+
+    fn parse_else_clause(&mut self) -> Option<ElseClauseSyntax> {
+        if self.current().kind != SyntaxKind::ElseKeyword {
+            return None;
+        }
+
+        let else_keyword = self.next_token();
+        let else_statement = self.parse_statement();
+        Some(ElseClauseSyntax {
+            else_keyword,
+            else_statement,
+        })
     }
 }
 

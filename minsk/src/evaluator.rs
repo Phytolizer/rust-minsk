@@ -5,6 +5,7 @@ use crate::binding::BoundBinaryOperatorKind;
 use crate::binding::BoundBlockStatement;
 use crate::binding::BoundExpression;
 use crate::binding::BoundExpressionStatement;
+use crate::binding::BoundIfStatement;
 use crate::binding::BoundLiteralExpression;
 use crate::binding::BoundStatement;
 use crate::binding::BoundUnaryExpression;
@@ -103,6 +104,7 @@ impl<'v> Evaluator<'v> {
         match root {
             BoundStatement::Block(s) => self.evaluate_block_statement(s),
             BoundStatement::Expression(s) => self.evaluate_expression_statement(s),
+            BoundStatement::If(s) => self.evaluate_if_statement(s),
             BoundStatement::VariableDeclaration(s) => {
                 self.evaluate_variable_declaration_statement(s)
             }
@@ -145,6 +147,15 @@ impl<'v> Evaluator<'v> {
         let value = self.evaluate_expression(&s.initializer);
         self.variables.insert(s.variable.clone(), value.clone());
         self.last_value = value;
+    }
+
+    fn evaluate_if_statement(&mut self, s: &BoundIfStatement) {
+        let condition = self.evaluate_expression(&s.condition);
+        if condition.as_boolean() {
+            self.evaluate_statement(&s.then_statement);
+        } else if let Some(else_statement) = &s.else_statement {
+            self.evaluate_statement(else_statement);
+        }
     }
 }
 
@@ -327,6 +338,10 @@ mod tests {
             ("5 ^ 3", Object::Number(6)),
             ("~1", Object::Number(-2)),
             ("{ var a = 0 (a = 10) * a }", Object::Number(100)),
+            ("{ var a = 0 if a == 0 a = 10 a }", Object::Number(10)),
+            ("{ var a = 0 if a == 0 a = 10 else a = 20 a }", Object::Number(10)),
+            ("{ var a = 0 if a == 4 a = 10 a }", Object::Number(0)),
+            ("{ var a = 0 if a == 4 a = 10 else a = 20 a }", Object::Number(20)),
         ]
     }
 

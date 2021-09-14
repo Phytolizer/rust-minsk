@@ -16,4 +16,5 @@ pub(crate) const INSULTS: &[&str] = &[
     "There are so many errors here I dont even know where to start... ",
     "Who hurt you?",
     "Go touch some grass",
+	"I bet your mom called you special, didn't she?",
 ];

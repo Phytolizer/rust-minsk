@@ -67,6 +67,21 @@ impl<'v> Evaluator<'v> {
             BoundBinaryOperatorKind::GreaterOrEquals => {
                 Object::Boolean(left.as_number() >= right.as_number())
             }
+            BoundBinaryOperatorKind::BitwiseAnd => match left {
+                Object::Number(n) => Object::Number(n & right.as_number()),
+                Object::Boolean(b) => Object::Boolean(b && right.as_boolean()),
+                _ => unreachable!(),
+            },
+            BoundBinaryOperatorKind::BitwiseOr => match left {
+                Object::Number(n) => Object::Number(n | right.as_number()),
+                Object::Boolean(b) => Object::Boolean(b || right.as_boolean()),
+                _ => unreachable!(),
+            },
+            BoundBinaryOperatorKind::BitwiseXor => match left {
+                Object::Number(n) => Object::Number(n ^ right.as_number()),
+                Object::Boolean(b) => Object::Boolean(b ^ right.as_boolean()),
+                _ => unreachable!(),
+            },
         }
     }
 
@@ -100,6 +115,7 @@ impl<'v> Evaluator<'v> {
             BoundUnaryOperatorKind::Identity => operand,
             BoundUnaryOperatorKind::Negation => Object::Number(-operand.as_number()),
             BoundUnaryOperatorKind::LogicalNegation => Object::Boolean(!operand.as_boolean()),
+            BoundUnaryOperatorKind::BitwiseNegation => Object::Number(!operand.as_number()),
         }
     }
 
@@ -271,10 +287,18 @@ mod tests {
             ("!!true", Object::Boolean(true)),
             ("!!false", Object::Boolean(false)),
             ("true && false", Object::Boolean(false)),
+            ("true & false", Object::Boolean(false)),
             ("true && true", Object::Boolean(true)),
+            ("true & true", Object::Boolean(true)),
             ("true || false", Object::Boolean(true)),
+            ("true | false", Object::Boolean(true)),
             ("true || true", Object::Boolean(true)),
+            ("true | true", Object::Boolean(true)),
             ("false || false", Object::Boolean(false)),
+            ("false | false", Object::Boolean(false)),
+            ("true ^ false", Object::Boolean(true)),
+            ("false ^ true", Object::Boolean(true)),
+            ("true ^ true", Object::Boolean(false)),
             ("true == false", Object::Boolean(false)),
             ("1 == 1", Object::Boolean(true)),
             ("2 == 3", Object::Boolean(false)),
@@ -292,6 +316,16 @@ mod tests {
             ("4 >= 4", Object::Boolean(true)),
             ("5 >= 4", Object::Boolean(true)),
             ("4 >= 5", Object::Boolean(false)),
+            ("1 | 2", Object::Number(3)),
+            ("2 | 3", Object::Number(3)),
+            ("1 | 0", Object::Number(1)),
+            ("1 & 2", Object::Number(0)),
+            ("1 & 3", Object::Number(1)),
+            ("5 & 3", Object::Number(1)),
+            ("1 ^ 3", Object::Number(2)),
+            ("3 ^ 3", Object::Number(0)),
+            ("5 ^ 3", Object::Number(6)),
+            ("~1", Object::Number(-2)),
             ("{ var a = 0 (a = 10) * a }", Object::Number(100)),
         ]
     }

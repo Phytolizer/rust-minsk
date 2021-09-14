@@ -123,6 +123,9 @@ pub(crate) enum BoundBinaryOperatorKind {
     Division,
     LogicalAnd,
     LogicalOr,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
     Equality,
     Inequality,
     Less,
@@ -143,6 +146,7 @@ pub(crate) enum BoundUnaryOperatorKind {
     Identity,
     Negation,
     LogicalNegation,
+    BitwiseNegation,
 }
 
 #[derive(Debug, Clone)]

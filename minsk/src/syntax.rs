@@ -40,6 +40,10 @@ pub(crate) enum SyntaxKind {
     LessOrEqualsToken,
     GreaterOrEqualsToken,
     EqualsToken,
+    AmpersandToken,
+    PipeToken,
+    TildeToken,
+    HatToken,
     OpenParenthesisToken,
     CloseParenthesisToken,
     OpenBraceToken,
@@ -77,15 +81,18 @@ impl SyntaxKind {
             | SyntaxKind::GreaterToken
             | SyntaxKind::LessOrEqualsToken
             | SyntaxKind::GreaterOrEqualsToken => 3,
-            SyntaxKind::AmpersandAmpersandToken => 2,
-            SyntaxKind::PipePipeToken => 1,
+            SyntaxKind::AmpersandAmpersandToken | SyntaxKind::AmpersandToken => 2,
+            SyntaxKind::PipePipeToken | SyntaxKind::PipeToken | SyntaxKind::HatToken => 1,
             _ => 0,
         }
     }
 
     pub(crate) fn get_unary_operator_precedence(&self) -> usize {
         match self {
-            SyntaxKind::PlusToken | SyntaxKind::MinusToken | SyntaxKind::BangToken => 6,
+            SyntaxKind::PlusToken
+            | SyntaxKind::MinusToken
+            | SyntaxKind::BangToken
+            | SyntaxKind::TildeToken => 6,
             _ => 0,
         }
     }
@@ -106,6 +113,10 @@ impl SyntaxKind {
             SyntaxKind::GreaterToken => Some(">"),
             SyntaxKind::LessOrEqualsToken => Some("<="),
             SyntaxKind::GreaterOrEqualsToken => Some(">="),
+            SyntaxKind::AmpersandToken => Some("&"),
+            SyntaxKind::PipeToken => Some("|"),
+            SyntaxKind::HatToken => Some("^"),
+            SyntaxKind::TildeToken => Some("~"),
             SyntaxKind::OpenParenthesisToken => Some("("),
             SyntaxKind::CloseParenthesisToken => Some(")"),
             SyntaxKind::OpenBraceToken => Some("{"),

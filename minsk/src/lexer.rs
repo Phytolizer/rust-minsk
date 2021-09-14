@@ -70,6 +70,22 @@ impl<'s> Lexer<'s> {
                 self.position += 2;
                 self.kind = SyntaxKind::GreaterOrEqualsToken;
             }
+            '&' => {
+                self.position += 1;
+                self.kind = SyntaxKind::AmpersandToken;
+            }
+            '|' => {
+                self.position += 1;
+                self.kind = SyntaxKind::PipeToken;
+            }
+            '^' => {
+                self.position += 1;
+                self.kind = SyntaxKind::HatToken;
+            }
+            '~' => {
+                self.position += 1;
+                self.kind = SyntaxKind::TildeToken;
+            }
             '<' => {
                 self.position += 1;
                 self.kind = SyntaxKind::LessToken;
@@ -254,6 +270,11 @@ mod tests {
                 SyntaxKind::LessToken | SyntaxKind::GreaterToken,
                 SyntaxKind::EqualsToken | SyntaxKind::EqualsEqualsToken,
             ) => true,
+            (
+                SyntaxKind::AmpersandToken,
+                SyntaxKind::AmpersandToken | SyntaxKind::AmpersandAmpersandToken,
+            ) => true,
+            (SyntaxKind::PipeToken, SyntaxKind::PipeToken | SyntaxKind::PipePipeToken) => true,
             _ => false,
         }
     }

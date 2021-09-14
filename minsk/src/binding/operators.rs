@@ -112,6 +112,48 @@ const BINARY_OPERATORS: &[BoundBinaryOperator] = &[
         ObjectKind::Number,
         ObjectKind::Boolean,
     ),
+    BoundBinaryOperator::new(
+        SyntaxKind::AmpersandToken,
+        BoundBinaryOperatorKind::BitwiseAnd,
+        ObjectKind::Number,
+        ObjectKind::Number,
+        ObjectKind::Number,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::AmpersandToken,
+        BoundBinaryOperatorKind::BitwiseAnd,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::PipeToken,
+        BoundBinaryOperatorKind::BitwiseOr,
+        ObjectKind::Number,
+        ObjectKind::Number,
+        ObjectKind::Number,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::PipeToken,
+        BoundBinaryOperatorKind::BitwiseOr,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::HatToken,
+        BoundBinaryOperatorKind::BitwiseXor,
+        ObjectKind::Number,
+        ObjectKind::Number,
+        ObjectKind::Number,
+    ),
+    BoundBinaryOperator::new(
+        SyntaxKind::HatToken,
+        BoundBinaryOperatorKind::BitwiseXor,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+        ObjectKind::Boolean,
+    ),
 ];
 
 impl BoundBinaryOperator {
@@ -174,6 +216,12 @@ const UNARY_OPERATORS: &[BoundUnaryOperator] = &[
         BoundUnaryOperatorKind::LogicalNegation,
         ObjectKind::Boolean,
         ObjectKind::Boolean,
+    ),
+    BoundUnaryOperator::new(
+        SyntaxKind::TildeToken,
+        BoundUnaryOperatorKind::BitwiseNegation,
+        ObjectKind::Number,
+        ObjectKind::Number,
     ),
 ];
 

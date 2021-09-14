@@ -57,6 +57,7 @@ pub(crate) enum SyntaxKind {
     LetKeyword,
     TrueKeyword,
     VarKeyword,
+    WhileKeyword,
 
     BinaryExpression,
     UnaryExpression,
@@ -69,6 +70,7 @@ pub(crate) enum SyntaxKind {
     ExpressionStatement,
     IfStatement,
     VariableDeclarationStatement,
+    WhileStatement,
 
     CompilationUnit,
     ElseClause,
@@ -131,6 +133,7 @@ impl SyntaxKind {
             SyntaxKind::LetKeyword => Some("let"),
             SyntaxKind::TrueKeyword => Some("true"),
             SyntaxKind::VarKeyword => Some("var"),
+            SyntaxKind::WhileKeyword => Some("while"),
             _ => None,
         }
     }
@@ -144,6 +147,7 @@ pub(crate) fn keyword_kind(text: &str) -> SyntaxKind {
         "let" => SyntaxKind::LetKeyword,
         "true" => SyntaxKind::TrueKeyword,
         "var" => SyntaxKind::VarKeyword,
+        "while" => SyntaxKind::WhileKeyword,
         _ => SyntaxKind::IdentifierToken,
     }
 }

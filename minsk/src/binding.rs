@@ -13,6 +13,7 @@ use crate::syntax::statements::ExpressionStatementSyntax;
 use crate::syntax::statements::IfStatementSyntax;
 use crate::syntax::statements::StatementSyntaxRef;
 use crate::syntax::statements::VariableDeclarationStatementSyntax;
+use crate::syntax::statements::WhileStatementSyntax;
 use crate::syntax::CompilationUnitSyntaxRef;
 use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxNodeRef;
@@ -37,6 +38,7 @@ pub(crate) enum BoundNodeKind {
     ExpressionStatement,
     IfStatement,
     VariableDeclarationStatement,
+    WhileStatement,
 }
 
 pub(crate) enum BoundNode {
@@ -59,6 +61,7 @@ pub(crate) enum BoundStatement {
     Expression(BoundExpressionStatement),
     If(BoundIfStatement),
     VariableDeclaration(BoundVariableDeclarationStatement),
+    While(BoundWhileStatement),
 }
 
 impl BoundStatement {
@@ -68,6 +71,7 @@ impl BoundStatement {
             BoundStatement::Expression(_) => BoundNodeKind::ExpressionStatement,
             BoundStatement::If(_) => BoundNodeKind::IfStatement,
             BoundStatement::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
+            BoundStatement::While(_) => BoundNodeKind::WhileStatement,
         }
     }
 }
@@ -93,6 +97,12 @@ pub(crate) struct BoundIfStatement {
 pub(crate) struct BoundVariableDeclarationStatement {
     pub(crate) variable: VariableSymbol,
     pub(crate) initializer: BoundExpression,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct BoundWhileStatement {
+    pub(crate) condition: BoundExpression,
+    pub(crate) body: Box<BoundStatement>,
 }
 
 #[derive(Debug, Clone)]
@@ -196,6 +206,7 @@ impl Binder {
             StatementSyntaxRef::VariableDeclaration(s) => {
                 self.bind_variable_declaration_statement(s)
             }
+            StatementSyntaxRef::While(s) => self.bind_while_statement(s),
         }
     }
 
@@ -445,6 +456,16 @@ impl Binder {
             condition: *condition,
             then_statement,
             else_statement,
+        }))
+    }
+
+    fn bind_while_statement(&mut self, s: &WhileStatementSyntax) -> Box<BoundStatement> {
+        let condition =
+            self.bind_expression_with_type(s.condition.create_ref(), ObjectKind::Boolean);
+        let body = self.bind_statement(s.body.create_ref());
+        Box::new(BoundStatement::While(BoundWhileStatement {
+            condition: *condition,
+            body,
         }))
     }
 }

@@ -10,6 +10,7 @@ pub enum StatementSyntax {
     Expression(ExpressionStatementSyntax),
     If(IfStatementSyntax),
     VariableDeclaration(VariableDeclarationStatementSyntax),
+    While(WhileStatementSyntax),
 }
 
 impl StatementSyntax {
@@ -19,6 +20,7 @@ impl StatementSyntax {
             StatementSyntax::Expression(s) => StatementSyntaxRef::Expression(s),
             StatementSyntax::If(s) => StatementSyntaxRef::If(s),
             StatementSyntax::VariableDeclaration(s) => StatementSyntaxRef::VariableDeclaration(s),
+            StatementSyntax::While(s) => StatementSyntaxRef::While(s),
         }
     }
 }
@@ -29,6 +31,7 @@ pub enum StatementSyntaxRef<'a> {
     Expression(&'a ExpressionStatementSyntax),
     If(&'a IfStatementSyntax),
     VariableDeclaration(&'a VariableDeclarationStatementSyntax),
+    While(&'a WhileStatementSyntax),
 }
 
 impl<'a> StatementSyntaxRef<'a> {
@@ -38,6 +41,7 @@ impl<'a> StatementSyntaxRef<'a> {
             StatementSyntaxRef::Expression(_) => SyntaxKind::ExpressionStatement,
             StatementSyntaxRef::If(_) => SyntaxKind::IfStatement,
             StatementSyntaxRef::VariableDeclaration(_) => SyntaxKind::VariableDeclarationStatement,
+            StatementSyntaxRef::While(_) => SyntaxKind::WhileStatement,
         }
     }
 
@@ -75,6 +79,11 @@ impl<'a> StatementSyntaxRef<'a> {
                 SyntaxNodeRef::Token(&s.equals_token),
                 SyntaxNodeRef::Expression(s.initializer.create_ref()),
             ],
+            StatementSyntaxRef::While(s) => vec![
+                SyntaxNodeRef::Token(&s.keyword),
+                SyntaxNodeRef::Expression(s.condition.create_ref()),
+                SyntaxNodeRef::Statement(s.body.create_ref()),
+            ],
         }
     }
 }
@@ -105,4 +114,11 @@ pub struct VariableDeclarationStatementSyntax {
     pub identifier: SyntaxToken,
     pub equals_token: SyntaxToken,
     pub initializer: ExpressionSyntax,
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStatementSyntax {
+    pub keyword: SyntaxToken,
+    pub condition: ExpressionSyntax,
+    pub body: Box<StatementSyntax>,
 }

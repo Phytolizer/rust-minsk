@@ -13,6 +13,7 @@ use crate::syntax::statements::ExpressionStatementSyntax;
 use crate::syntax::statements::IfStatementSyntax;
 use crate::syntax::statements::StatementSyntax;
 use crate::syntax::statements::VariableDeclarationStatementSyntax;
+use crate::syntax::statements::WhileStatementSyntax;
 use crate::syntax::CompilationUnitSyntax;
 use crate::syntax::ElseClauseSyntax;
 use crate::syntax::SyntaxKind;
@@ -117,6 +118,9 @@ impl Parser {
                 StatementSyntax::VariableDeclaration(self.parse_variable_declaration_statement()),
             ),
             SyntaxKind::IfKeyword => Box::new(StatementSyntax::If(self.parse_if_statement())),
+            SyntaxKind::WhileKeyword => {
+                Box::new(StatementSyntax::While(self.parse_while_statement()))
+            }
             _ => Box::new(StatementSyntax::Expression(
                 self.parse_expression_statement(),
             )),
@@ -292,6 +296,17 @@ impl Parser {
             else_keyword,
             else_statement,
         })
+    }
+
+    fn parse_while_statement(&mut self) -> WhileStatementSyntax {
+        let keyword = self.match_token(SyntaxKind::WhileKeyword);
+        let condition = *self.parse_expression();
+        let body = self.parse_statement();
+        WhileStatementSyntax {
+            keyword,
+            condition,
+            body,
+        }
     }
 }
 

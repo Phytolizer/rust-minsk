@@ -11,6 +11,7 @@ use crate::binding::BoundStatement;
 use crate::binding::BoundUnaryExpression;
 use crate::binding::BoundUnaryOperatorKind;
 use crate::binding::BoundVariableDeclarationStatement;
+use crate::binding::BoundWhileStatement;
 use crate::plumbing::Object;
 use crate::text::VariableSymbol;
 
@@ -108,6 +109,7 @@ impl<'v> Evaluator<'v> {
             BoundStatement::VariableDeclaration(s) => {
                 self.evaluate_variable_declaration_statement(s)
             }
+            BoundStatement::While(s) => self.evaluate_while_statement(s),
         }
     }
 
@@ -155,6 +157,16 @@ impl<'v> Evaluator<'v> {
             self.evaluate_statement(&s.then_statement);
         } else if let Some(else_statement) = &s.else_statement {
             self.evaluate_statement(else_statement);
+        }
+    }
+
+    fn evaluate_while_statement(&mut self, s: &BoundWhileStatement) {
+        loop {
+            let condition = self.evaluate_expression(&s.condition);
+            if !condition.as_boolean() {
+                break;
+            }
+            self.evaluate_statement(&s.body);
         }
     }
 }
@@ -339,9 +351,26 @@ mod tests {
             ("~1", Object::Number(-2)),
             ("{ var a = 0 (a = 10) * a }", Object::Number(100)),
             ("{ var a = 0 if a == 0 a = 10 a }", Object::Number(10)),
-            ("{ var a = 0 if a == 0 a = 10 else a = 20 a }", Object::Number(10)),
+            (
+                "{ var a = 0 if a == 0 a = 10 else a = 20 a }",
+                Object::Number(10),
+            ),
             ("{ var a = 0 if a == 4 a = 10 a }", Object::Number(0)),
-            ("{ var a = 0 if a == 4 a = 10 else a = 20 a }", Object::Number(20)),
+            (
+                "{ var a = 0 if a == 4 a = 10 else a = 20 a }",
+                Object::Number(20),
+            ),
+            (
+                "{ 
+                    var result = 0 
+                    var i = 10 
+                    while i > 0 { 
+                        result = result + i 
+                        i = i - 1 
+                    } result 
+                }",
+                Object::Number(55),
+            ),
         ]
     }
 

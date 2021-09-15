@@ -17,4 +17,5 @@ pub(crate) const INSULTS: &[&str] = &[
     "Who hurt you?",
     "Go touch some grass",
     "I bet your mom called you special, didn't she?",
+    "Are you sure you are writing sapien? This looks kinda MONKE to me...",
 ];

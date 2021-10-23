@@ -4,7 +4,6 @@ use crossterm::style::Color;
 use crossterm::style::Print;
 use crossterm::style::ResetColor;
 use crossterm::style::SetAttribute;
-use crossterm::style::SetAttributes;
 use crossterm::style::SetForegroundColor;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;

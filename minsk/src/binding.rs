@@ -1,3 +1,10 @@
+use crossterm::style::ResetColor;
+use std::io::stdout;
+
+use crossterm::style::Color;
+use crossterm::style::SetForegroundColor;
+use crossterm::ExecutableCommand;
+
 use crate::diagnostic::DiagnosticBag;
 use crate::plumbing::Object;
 use crate::plumbing::ObjectKind;
@@ -28,6 +35,7 @@ use self::scope::BoundScope;
 mod operators;
 pub(crate) mod scope;
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum BoundNodeKind {
     BinaryExpression,
     UnaryExpression,
@@ -48,11 +56,56 @@ pub(crate) enum BoundNode {
     Statement(BoundStatement),
 }
 
-impl BoundNode {
+pub(crate) enum BoundNodeRef<'a> {
+    Expression(BoundExpressionRef<'a>),
+    Statement(BoundStatementRef<'a>),
+}
+
+impl<'a> BoundNodeRef<'a> {
     pub(crate) fn kind(&self) -> BoundNodeKind {
         match self {
-            BoundNode::Expression(e) => e.kind(),
-            BoundNode::Statement(s) => s.kind(),
+            Self::Expression(e) => e.kind(),
+            Self::Statement(s) => s.kind(),
+        }
+    }
+
+    fn children(&self) -> Vec<BoundNodeRef<'a>> {
+        match self {
+            Self::Expression(e) => e.children(),
+            Self::Statement(s) => s.children(),
+        }
+    }
+
+    pub(crate) fn pretty_print(&self) {
+        self.pretty_print_node(&mut stdout(), String::new(), true, true);
+    }
+
+    fn pretty_print_node<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+        mut indent: String,
+        is_last: bool,
+        colors: bool,
+    ) {
+        if colors {
+            writer.execute(SetForegroundColor(Color::DarkGrey)).unwrap();
+        }
+        write!(writer, "{}", indent).unwrap();
+        let marker = if is_last {
+            "└───"
+        } else {
+            "├───"
+        };
+        write!(writer, "{}", marker).unwrap();
+        if colors {
+            writer.execute(ResetColor).unwrap();
+        }
+        write!(writer, "{:?}", self.kind()).unwrap();
+        indent += if is_last { "    " } else { "│   " };
+        writeln!(writer).unwrap();
+        let children = self.children();
+        for i in 0..children.len() {
+            children[i].pretty_print_node(writer, indent.clone(), i == children.len() - 1, colors);
         }
     }
 }
@@ -68,14 +121,75 @@ pub(crate) enum BoundStatement {
 }
 
 impl BoundStatement {
+    fn create_ref(&self) -> BoundStatementRef {
+        match self {
+            Self::Block(s) => BoundStatementRef::Block(s),
+            Self::Expression(s) => BoundStatementRef::Expression(s),
+            Self::For(s) => BoundStatementRef::For(s),
+            Self::If(s) => BoundStatementRef::If(s),
+            Self::VariableDeclaration(s) => BoundStatementRef::VariableDeclaration(s),
+            Self::While(s) => BoundStatementRef::While(s),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum BoundStatementRef<'a> {
+    Block(&'a BoundBlockStatement),
+    Expression(&'a BoundExpressionStatement),
+    For(&'a BoundForStatement),
+    If(&'a BoundIfStatement),
+    VariableDeclaration(&'a BoundVariableDeclarationStatement),
+    While(&'a BoundWhileStatement),
+}
+
+impl<'a> BoundStatementRef<'a> {
     fn kind(&self) -> BoundNodeKind {
         match self {
-            BoundStatement::Block(_) => BoundNodeKind::BlockStatement,
-            BoundStatement::Expression(_) => BoundNodeKind::ExpressionStatement,
-            BoundStatement::For(_) => BoundNodeKind::ForStatement,
-            BoundStatement::If(_) => BoundNodeKind::IfStatement,
-            BoundStatement::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
-            BoundStatement::While(_) => BoundNodeKind::WhileStatement,
+            Self::Block(_) => BoundNodeKind::BlockStatement,
+            Self::Expression(_) => BoundNodeKind::ExpressionStatement,
+            Self::For(_) => BoundNodeKind::ForStatement,
+            Self::If(_) => BoundNodeKind::IfStatement,
+            Self::VariableDeclaration(_) => BoundNodeKind::VariableDeclarationStatement,
+            Self::While(_) => BoundNodeKind::WhileStatement,
+        }
+    }
+
+    fn children(&self) -> Vec<BoundNodeRef<'a>> {
+        match self {
+            Self::Block(s) => s
+                .statements
+                .iter()
+                .map(|s| BoundNodeRef::Statement(s.create_ref()))
+                .collect::<Vec<_>>(),
+            Self::Expression(s) => vec![BoundNodeRef::Expression(s.expression.create_ref())],
+            Self::For(s) => vec![
+                BoundNodeRef::Expression(s.lower_bound.create_ref()),
+                BoundNodeRef::Expression(s.upper_bound.create_ref()),
+                BoundNodeRef::Statement(s.body.create_ref()),
+            ],
+            Self::If(s) => {
+                let mut res = vec![
+                    BoundNodeRef::Expression(s.condition.create_ref()),
+                    BoundNodeRef::Statement(s.then_statement.create_ref()),
+                ];
+                res.append(
+                    &mut s
+                        .else_statement
+                        .as_ref()
+                        .map(|s| BoundNodeRef::Statement(s.create_ref()))
+                        .into_iter()
+                        .collect::<Vec<_>>(),
+                );
+                res
+            }
+            Self::VariableDeclaration(s) => {
+                vec![BoundNodeRef::Expression(s.initializer.create_ref())]
+            }
+            Self::While(s) => vec![
+                BoundNodeRef::Expression(s.condition.create_ref()),
+                BoundNodeRef::Statement(s.body.create_ref()),
+            ],
         }
     }
 }
@@ -127,23 +241,57 @@ pub(crate) enum BoundExpression {
 }
 
 impl BoundExpression {
+    fn create_ref(&self) -> BoundExpressionRef {
+        match self {
+            Self::Binary(e) => BoundExpressionRef::Binary(e),
+            Self::Unary(e) => BoundExpressionRef::Unary(e),
+            Self::Literal(e) => BoundExpressionRef::Literal(e),
+            Self::Variable(e) => BoundExpressionRef::Variable(e),
+            Self::Assignment(e) => BoundExpressionRef::Assignment(e),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum BoundExpressionRef<'a> {
+    Binary(&'a BoundBinaryExpression),
+    Unary(&'a BoundUnaryExpression),
+    Literal(&'a BoundLiteralExpression),
+    Variable(&'a BoundVariableExpression),
+    Assignment(&'a BoundAssignmentExpression),
+}
+
+impl<'a> BoundExpressionRef<'a> {
     pub(crate) fn kind(&self) -> BoundNodeKind {
         match self {
-            BoundExpression::Binary(_) => BoundNodeKind::BinaryExpression,
-            BoundExpression::Unary(_) => BoundNodeKind::UnaryExpression,
-            BoundExpression::Literal(_) => BoundNodeKind::LiteralExpression,
-            BoundExpression::Variable(_) => BoundNodeKind::VariableExpression,
-            BoundExpression::Assignment(_) => BoundNodeKind::AssignmentExpression,
+            Self::Binary(_) => BoundNodeKind::BinaryExpression,
+            Self::Unary(_) => BoundNodeKind::UnaryExpression,
+            Self::Literal(_) => BoundNodeKind::LiteralExpression,
+            Self::Variable(_) => BoundNodeKind::VariableExpression,
+            Self::Assignment(_) => BoundNodeKind::AssignmentExpression,
         }
     }
 
     pub(crate) fn get_type(&self) -> ObjectKind {
         match self {
-            BoundExpression::Binary(e) => e.operator.result_type,
-            BoundExpression::Unary(e) => e.operator.result_type,
-            BoundExpression::Literal(e) => e.value.kind(),
-            BoundExpression::Variable(e) => e.variable.kind,
-            BoundExpression::Assignment(e) => e.expression.get_type(),
+            Self::Binary(e) => e.operator.result_type,
+            Self::Unary(e) => e.operator.result_type,
+            Self::Literal(e) => e.value.kind(),
+            Self::Variable(e) => e.variable.kind,
+            Self::Assignment(e) => e.expression.create_ref().get_type(),
+        }
+    }
+
+    fn children(&self) -> Vec<BoundNodeRef<'a>> {
+        match self {
+            Self::Binary(e) => vec![
+                BoundNodeRef::Expression(e.left.create_ref()),
+                BoundNodeRef::Expression(e.right.create_ref()),
+            ],
+            Self::Unary(e) => vec![BoundNodeRef::Expression(e.operand.create_ref())],
+            Self::Literal(_) => Vec::new(),
+            Self::Variable(_) => Vec::new(),
+            Self::Assignment(e) => vec![BoundNodeRef::Expression(e.expression.create_ref())],
         }
     }
 }
@@ -230,10 +378,10 @@ impl Binder {
                 .report_cannot_assign(e.equals_token.span(), &name);
         }
 
-        if expression.get_type() != variable.kind {
+        if expression.create_ref().get_type() != variable.kind {
             self.diagnostics.report_cannot_convert(
                 SyntaxNodeRef::Expression(e.expression.create_ref()).span(),
-                expression.get_type(),
+                expression.create_ref().get_type(),
                 variable.kind,
             );
             return expression;
@@ -248,8 +396,11 @@ impl Binder {
     fn bind_binary_expression(&mut self, e: &BinaryExpressionSyntax) -> Box<BoundExpression> {
         let left = self.bind_expression(e.left.create_ref());
         let right = self.bind_expression(e.right.create_ref());
-        let operator =
-            BoundBinaryOperator::bind(e.operator_token.kind, left.get_type(), right.get_type());
+        let operator = BoundBinaryOperator::bind(
+            e.operator_token.kind,
+            left.create_ref().get_type(),
+            right.create_ref().get_type(),
+        );
         if let Some(operator) = operator {
             Box::new(BoundExpression::Binary(BoundBinaryExpression {
                 left,
@@ -260,8 +411,8 @@ impl Binder {
             self.diagnostics.report_undefined_binary_operator(
                 e.operator_token.span(),
                 e.operator_token.text.clone(),
-                left.get_type(),
-                right.get_type(),
+                left.create_ref().get_type(),
+                right.create_ref().get_type(),
             );
             left
         }
@@ -313,10 +464,10 @@ impl Binder {
         target_type: ObjectKind,
     ) -> Box<BoundExpression> {
         let result = self.bind_expression(expression);
-        if result.get_type() != target_type {
+        if result.create_ref().get_type() != target_type {
             self.diagnostics.report_cannot_convert(
                 SyntaxNodeRef::Expression(expression).span(),
-                result.get_type(),
+                result.create_ref().get_type(),
                 target_type,
             );
         }
@@ -435,7 +586,8 @@ impl Binder {
 
     fn bind_unary_expression(&mut self, e: &UnaryExpressionSyntax) -> Box<BoundExpression> {
         let operand = self.bind_expression(e.operand.create_ref());
-        let operator = BoundUnaryOperator::bind(e.operator_token.kind, operand.get_type());
+        let operator =
+            BoundUnaryOperator::bind(e.operator_token.kind, operand.create_ref().get_type());
         if let Some(operator) = operator {
             Box::new(BoundExpression::Unary(BoundUnaryExpression {
                 operator,
@@ -445,7 +597,7 @@ impl Binder {
             self.diagnostics.report_undefined_unary_operator(
                 e.operator_token.span(),
                 e.operator_token.text.clone(),
-                operand.get_type(),
+                operand.create_ref().get_type(),
             );
             operand
         }
@@ -461,7 +613,7 @@ impl Binder {
         let variable = VariableSymbol {
             name: name.clone(),
             is_read_only,
-            kind: initializer.get_type(),
+            kind: initializer.create_ref().get_type(),
         };
         if !self.scope.try_declare(variable.clone()) {
             self.diagnostics
